@@ -3,10 +3,8 @@ import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FilmTicket } from "@/components/FilmTicket";
 import { TicketFinale } from "@/components/TicketFinale";
-import { VhsCaseArtwork } from "@/components/VhsCaseArtwork";
 import type { DemoFinalist } from "@/lib/filmTicket";
 import type { FilmRoundSnapshot } from "@/lib/filmRoundClient";
-import programStyles from "@/styles/filmClubProgram.module.css";
 import styles from "@/styles/closedFilmRound.module.css";
 
 interface ClosedFilmRoundProps {
@@ -30,9 +28,9 @@ const formatLockedAt = (value: string): string => {
 };
 
 export const ClosedFilmRound = ({ snapshot }: ClosedFilmRoundProps) => {
-  const [introComplete, setIntroComplete] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [finaleOpen, setFinaleOpen] = useState(false);
-  const finaleLaunchedRef = useRef(false);
+  const resultsHeading = useRef<HTMLHeadingElement>(null);
   const ranking = snapshot.ranking;
   const winnerEntry = ranking[0];
   const winnerTicket = snapshot.ticket;
@@ -41,29 +39,19 @@ export const ClosedFilmRound = ({ snapshot }: ClosedFilmRoundProps) => {
     () => ranking.map(({ film, votes }) => ({ film, votes })),
     [ranking],
   );
-  const introFilms = ranking.slice(0, 3);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (reducedMotion || introFilms.length === 0) {
-      setIntroComplete(true);
-      return;
-    }
+    if (!revealed || finaleOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      resultsHeading.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [revealed, finaleOpen]);
 
-    const timer = window.setTimeout(() => setIntroComplete(true), 1_700);
-    return () => window.clearTimeout(timer);
-  }, [introFilms.length]);
-
-  useEffect(() => {
-    if (!introComplete || !hasWinner || finaleLaunchedRef.current) {
-      return;
-    }
-
-    finaleLaunchedRef.current = true;
-    setFinaleOpen(true);
-  }, [hasWinner, introComplete]);
+  const revealResults = () => {
+    setRevealed(true);
+    setFinaleOpen(hasWinner);
+  };
 
   const closeFinale = () => {
     setFinaleOpen(false);
@@ -79,100 +67,100 @@ export const ClosedFilmRound = ({ snapshot }: ClosedFilmRoundProps) => {
         />
       </Head>
 
-      {!introComplete ? (
-        <section
-          className={styles.intro}
-          aria-label="Avstemningen er avsluttet"
-        >
-          <p className={styles.kicker}>FILMKLUBBEN / RESULTAT</p>
-          <h1>Avstemningen er avsluttet</h1>
-          <p className={styles.introMeta}>
-            {formatLockedAt(snapshot.lockedAt)}
-          </p>
-          <div className={styles.introCases} aria-hidden="true">
-            {introFilms.map(({ film }, index) => (
-              <span
-                className={`${programStyles.voteFilm} ${styles.introCase}`}
-                data-case-open="true"
-                key={film.id}
-                style={{ animationDelay: `${index * 130}ms` }}
+      {!revealed ? (
+        <main className={styles.intro} aria-labelledby="closed-round-title">
+          <div className={styles.closedScreen}>
+            <p className={styles.closedStatus}>
+              <span aria-hidden="true" /> FILMKLUBBEN
+            </p>
+            <div className={styles.closedMessage}>
+              <p className={styles.kicker}>STEMMENE ER I BOKS</p>
+              <h1 id="closed-round-title">
+                Stemmingen
+                <br />
+                er avsluttet.
+              </h1>
+              <p className={styles.introMeta}>
+                Takk for at du var med og valgte.
+              </p>
+              <button
+                type="button"
+                className={styles.revealButton}
+                onClick={revealResults}
               >
-                <VhsCaseArtwork
-                  coverImage={film.coverImage}
-                  title={film.title}
-                  eager
-                />
-              </span>
-            ))}
+                Se resultatene <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <p className={styles.closedFooter}>NESTE STOPP: FILMKVELD</p>
           </div>
-        </section>
+        </main>
       ) : null}
 
-      <main
-        className={styles.settled}
-        data-visible={introComplete}
-        aria-hidden={!introComplete}
-      >
-        <header className={styles.header}>
-          <p className={styles.kicker}>FILMKLUBBEN / RESULTAT</p>
-          <h1>Avstemningen er avsluttet</h1>
-          <p className={styles.headerMeta}>
-            {formatLockedAt(snapshot.lockedAt)}
-          </p>
-        </header>
-
-        {hasWinner && winnerEntry && winnerTicket ? (
-          <section
-            className={styles.winner}
-            aria-label={`Vinner: ${winnerEntry.film.title}`}
-          >
-            <p className={styles.kicker}>VINNEREN ER</p>
-            <h2>{winnerEntry.film.title}</h2>
-            <p className={styles.winnerMeta}>
-              {winnerEntry.votes}{" "}
-              {winnerEntry.votes === 1 ? "stemme" : "stemmer"} ·{" "}
-              {winnerEntry.film.year}
+      {revealed ? (
+        <main className={styles.settled}>
+          <header className={styles.header}>
+            <p className={styles.kicker}>FILMKLUBBEN / RESULTAT</p>
+            <h1 ref={resultsHeading} tabIndex={-1}>
+              Avstemningen er avsluttet
+            </h1>
+            <p className={styles.headerMeta}>
+              {formatLockedAt(snapshot.lockedAt)}
             </p>
-            {!finaleOpen ? (
-              <div className={styles.winnerTicket}>
-                <FilmTicket ticket={winnerTicket} />
-              </div>
-            ) : null}
-          </section>
-        ) : (
-          <section className={styles.noWinner} aria-label="Ingen vinner">
-            <p className={styles.kicker}>INGEN VINNER</p>
-            <h2>Ingen film ble kåret.</h2>
-            <p>Resultatene fra runden er bevart nedenfor.</p>
-          </section>
-        )}
-
-        <section className={styles.results} aria-label="Hele avstemningen">
-          <header className={styles.resultsHeader}>
-            <h2>Hele avstemningen</h2>
-            <span>
-              {snapshot.stats.totalVotes}{" "}
-              {snapshot.stats.totalVotes === 1 ? "stemme" : "stemmer"}
-            </span>
           </header>
-          <ol>
-            {ranking.map(({ film, votes }, index) => (
-              <li key={film.id} data-winner={hasWinner && index === 0}>
-                <span className={styles.place}>
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className={styles.filmTitle}>
-                  <FilmResultSpine film={film} />
-                </span>
-                <span className={styles.votes}>
-                  <strong>{votes}</strong>
-                  {votes === 1 ? "stemme" : "stemmer"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      </main>
+
+          {hasWinner && winnerEntry && winnerTicket ? (
+            <section
+              className={styles.winner}
+              aria-label={`Vinner: ${winnerEntry.film.title}`}
+            >
+              <p className={styles.kicker}>VINNEREN ER</p>
+              <h2>{winnerEntry.film.title}</h2>
+              <p className={styles.winnerMeta}>
+                {winnerEntry.votes}{" "}
+                {winnerEntry.votes === 1 ? "stemme" : "stemmer"} ·{" "}
+                {winnerEntry.film.year}
+              </p>
+              {!finaleOpen ? (
+                <div className={styles.winnerTicket}>
+                  <FilmTicket ticket={winnerTicket} />
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <section className={styles.noWinner} aria-label="Ingen vinner">
+              <p className={styles.kicker}>INGEN VINNER</p>
+              <h2>Ingen film ble kåret.</h2>
+              <p>Resultatene fra runden er bevart nedenfor.</p>
+            </section>
+          )}
+
+          <section className={styles.results} aria-label="Hele avstemningen">
+            <header className={styles.resultsHeader}>
+              <h2>Hele avstemningen</h2>
+              <span>
+                {snapshot.stats.totalVotes}{" "}
+                {snapshot.stats.totalVotes === 1 ? "stemme" : "stemmer"}
+              </span>
+            </header>
+            <ol>
+              {ranking.map(({ film, votes }, index) => (
+                <li key={film.id} data-winner={hasWinner && index === 0}>
+                  <span className={styles.place}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className={styles.filmTitle}>
+                    <FilmResultSpine film={film} />
+                  </span>
+                  <span className={styles.votes}>
+                    <strong>{votes}</strong>
+                    {votes === 1 ? "stemme" : "stemmer"}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </main>
+      ) : null}
 
       {finaleOpen && winnerEntry && winnerTicket ? (
         <TicketFinale
