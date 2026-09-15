@@ -3,11 +3,12 @@
 Branch: `feature/closed-voting-preview`, based on `6452f67` from the existing
 Filmklubben ticket implementation. No deployment or real voting changes.
 
-The closed-round view now waits for **Se resultatene** before mounting the
-existing TicketFinale. No winner, posters or ranking are rendered before that
-click. Closing the finale shows the preserved result and moves keyboard focus
-to its heading. Reloading returns to the closed landing screen. Reduced-motion
-users still choose when to reveal; the existing finale skips its animation.
+The closed-round view keeps the original TV/trailer and VHS grid. The existing
+physical power button overlaps the TV's lower edge, labelled **Se resultatene**.
+It glows once on entry. Film clicks only pulse that button; they cannot vote or
+open the cases. Clicking the power button mounts the existing TicketFinale with
+the frozen ticket. Closing it returns to the TV/grid. Reduced-motion users get
+a steady button highlight and the existing finale skips its animation.
 
 ## Run
 
@@ -28,12 +29,13 @@ not read production votes, inherit CLUB_DB_PATH, or contact a live vote API.
 ## Verification, 2026-09-15
 
 - TypeScript and component ESLint checks pass.
-- Round API/client/store tests: 31 passing, including frozen ticket/ranking,
+- Round and voting API/client/store tests: 48 passing, including frozen ticket/ranking,
   idempotent locking, empty rounds and rejecting added/removed votes after lock.
-- Safari desktop: landing remains closed until click; click opens finale;
-  PlayTime ticket rendered with date/time/venue; Escape closes to results and
-  focuses the heading; reload restores the landing without autoplay.
-- Safari responsive mode: landing fits 320px width, with readable copy and CTA.
+- Safari responsive mode at 550px: original TV and grid render with the power
+  button overlapping the TV edge. Film click adds the accessible button hint
+  without opening the finale; power click starts the existing countdown.
+- The countdown reaches the frozen PlayTime ticket with date/time/venue;
+  Escape returns to the TV/grid without replaying the finale.
 - Local round GET returns `closed`, 20 fictional votes and the frozen ticket.
 
 The in-app browser controller was unavailable, so visual testing used Safari.

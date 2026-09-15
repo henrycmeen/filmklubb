@@ -1,175 +1,138 @@
-import { FilmResultSpine } from "@/components/FilmResultSpine";
 import Head from "next/head";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FilmTicket } from "@/components/FilmTicket";
+import { useMemo, useRef, useState } from "react";
+import { NextFilmTv } from "@/components/NextFilmTv";
 import { TicketFinale } from "@/components/TicketFinale";
+import { VhsCaseArtwork } from "@/components/VhsCaseArtwork";
+import { formatFilmDate } from "@/components/filmClubProgramData";
+import catalogue from "@/data/filmVoteCatalogue.json";
 import type { DemoFinalist } from "@/lib/filmTicket";
 import type { FilmRoundSnapshot } from "@/lib/filmRoundClient";
+import program from "@/styles/filmClubProgram.module.css";
+import demo from "@/styles/filmClubDemo.module.css";
 import styles from "@/styles/closedFilmRound.module.css";
 
-interface ClosedFilmRoundProps {
+export const ClosedFilmRound = ({
+  snapshot,
+}: {
   snapshot: FilmRoundSnapshot;
-}
-
-const formatLockedAt = (value: string): string => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Tidspunkt ikke tilgjengelig";
-  }
-
-  return new Intl.DateTimeFormat("nb-NO", {
-    timeZone: "Europe/Oslo",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
-
-export const ClosedFilmRound = ({ snapshot }: ClosedFilmRoundProps) => {
-  const [revealed, setRevealed] = useState(false);
+}) => {
   const [finaleOpen, setFinaleOpen] = useState(false);
-  const resultsHeading = useRef<HTMLHeadingElement>(null);
-  const ranking = snapshot.ranking;
-  const winnerEntry = ranking[0];
-  const winnerTicket = snapshot.ticket;
-  const hasWinner = winnerEntry !== undefined && winnerTicket !== null;
+  const [attention, setAttention] = useState(0);
+  const [emptyResult, setEmptyResult] = useState(false);
+  const revealButton = useRef<HTMLButtonElement>(null);
+  const winner = snapshot.ticket ? snapshot.ranking[0] : undefined;
+  const movie = winner
+    ? (catalogue.find((film) => film.id === winner.film.id) ?? winner.film)
+    : null;
   const finalists = useMemo<DemoFinalist[]>(
-    () => ranking.map(({ film, votes }) => ({ film, votes })),
-    [ranking],
+    () => snapshot.ranking.map(({ film, votes }) => ({ film, votes })),
+    [snapshot.ranking],
   );
 
-  useEffect(() => {
-    if (!revealed || finaleOpen) return;
-    const frame = window.requestAnimationFrame(() => {
-      resultsHeading.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [revealed, finaleOpen]);
-
-  const revealResults = () => {
-    setRevealed(true);
-    setFinaleOpen(hasWinner);
-  };
-
-  const closeFinale = () => {
-    setFinaleOpen(false);
+  // Closed films never mount the voting client or send a vote request.
+  const nudgeResultButton = () => {
+    setAttention((value) => value + 1);
+    const button = revealButton.current;
+    if (!button) return;
+    const { top, bottom } = button.getBoundingClientRect();
+    if (top < 0 || bottom > window.innerHeight) {
+      button.scrollIntoView({
+        block: "center",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
+    }
   };
 
   return (
-    <div className={styles.page}>
+    <>
       <Head>
-        <title>Filmklubben · Resultater</title>
-        <meta
-          name="description"
-          content="Resultatet fra Filmklubbens avsluttede avstemning."
-        />
+        <title>Filmklubben · Avstemningen er avsluttet</title>
       </Head>
-
-      {!revealed ? (
-        <main className={styles.intro} aria-labelledby="closed-round-title">
-          <div className={styles.closedScreen}>
-            <p className={styles.closedStatus}>
-              <span aria-hidden="true" /> FILMKLUBBEN
-            </p>
-            <div className={styles.closedMessage}>
-              <p className={styles.kicker}>STEMMENE ER I BOKS</p>
-              <h1 id="closed-round-title">
-                Stemmingen
-                <br />
-                er avsluttet.
-              </h1>
-              <p className={styles.introMeta}>
-                Takk for at du var med og valgte.
-              </p>
-              <button
-                type="button"
-                className={styles.revealButton}
-                onClick={revealResults}
-              >
-                Se resultatene <span aria-hidden="true">↗</span>
-              </button>
-            </div>
-            <p className={styles.closedFooter}>NESTE STOPP: FILMKVELD</p>
+      <main className={program.programPage}>
+        <section className={program.nextSection}>
+          <div className={program.sectionLabel}>
+            <span>Stemmingen er avsluttet</span>
+            <span>{formatFilmDate(snapshot.scheduledAt)}</span>
           </div>
-        </main>
-      ) : null}
-
-      {revealed ? (
-        <main className={styles.settled}>
-          <header className={styles.header}>
-            <p className={styles.kicker}>FILMKLUBBEN / RESULTAT</p>
-            <h1 ref={resultsHeading} tabIndex={-1}>
-              Avstemningen er avsluttet
-            </h1>
-            <p className={styles.headerMeta}>
-              {formatLockedAt(snapshot.lockedAt)}
-            </p>
-          </header>
-
-          {hasWinner && winnerEntry && winnerTicket ? (
-            <section
-              className={styles.winner}
-              aria-label={`Vinner: ${winnerEntry.film.title}`}
+          <div className={program.nextLayout}>
+            <div className={program.nextCase}>
+              <NextFilmTv movie={movie} />
+            </div>
+          </div>
+        </section>
+        <div className={styles.resultControl}>
+          <button
+            ref={revealButton}
+            type="button"
+            className={`${demo.announce} ${styles.announce}`}
+            aria-label="Se resultatene"
+            onClick={() => {
+              if (winner && snapshot.ticket) setFinaleOpen(true);
+              else setEmptyResult(true);
+            }}
+          >
+            <span
+              key={attention}
+              className={`${demo.powerSwitch} ${styles.powerSwitch}`}
+              data-attention={attention > 0}
+              aria-hidden="true"
             >
-              <p className={styles.kicker}>VINNEREN ER</p>
-              <h2>{winnerEntry.film.title}</h2>
-              <p className={styles.winnerMeta}>
-                {winnerEntry.votes}{" "}
-                {winnerEntry.votes === 1 ? "stemme" : "stemmer"} ·{" "}
-                {winnerEntry.film.year}
-              </p>
-              {!finaleOpen ? (
-                <div className={styles.winnerTicket}>
-                  <FilmTicket ticket={winnerTicket} />
-                </div>
-              ) : null}
-            </section>
-          ) : (
-            <section className={styles.noWinner} aria-label="Ingen vinner">
-              <p className={styles.kicker}>INGEN VINNER</p>
-              <h2>Ingen film ble kåret.</h2>
-              <p>Resultatene fra runden er bevart nedenfor.</p>
-            </section>
-          )}
-
-          <section className={styles.results} aria-label="Hele avstemningen">
-            <header className={styles.resultsHeader}>
-              <h2>Hele avstemningen</h2>
-              <span>
-                {snapshot.stats.totalVotes}{" "}
-                {snapshot.stats.totalVotes === 1 ? "stemme" : "stemmer"}
-              </span>
-            </header>
-            <ol>
-              {ranking.map(({ film, votes }, index) => (
-                <li key={film.id} data-winner={hasWinner && index === 0}>
-                  <span className={styles.place}>
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className={styles.filmTitle}>
-                    <FilmResultSpine film={film} />
-                  </span>
-                  <span className={styles.votes}>
-                    <strong>{votes}</strong>
-                    {votes === 1 ? "stemme" : "stemmer"}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-        </main>
-      ) : null}
-
-      {finaleOpen && winnerEntry && winnerTicket ? (
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M16 4v12M9.3 8.3a11 11 0 1 0 13.4 0" />
+              </svg>
+            </span>
+            <span>Se resultatene</span>
+          </button>
+          <span
+            className={styles.srOnly}
+            role="status"
+            key={`hint-${attention}`}
+          >
+            {attention > 0
+              ? "Stemmingen er avsluttet. Trykk Se resultatene på strømknappen."
+              : ""}
+          </span>
+          {emptyResult ? (
+            <p role="status">Ingen stemmer ble avgitt i denne runden.</p>
+          ) : null}
+        </div>
+        <section
+          className={program.voteWallSection}
+          aria-label="Filmer i avsluttet avstemning"
+        >
+          <ol className={program.voteGrid}>
+            {snapshot.ranking.map(({ film }, index) => (
+              <li key={film.id}>
+                <button
+                  type="button"
+                  className={program.voteFilm}
+                  aria-label={`${film.title}. Stemmingen er avsluttet.`}
+                  aria-disabled="true"
+                  data-case-open="false"
+                  data-suppress-preview="true"
+                  onClick={nudgeResultButton}
+                >
+                  <VhsCaseArtwork
+                    coverImage={film.coverImage}
+                    title={film.title}
+                    eager={index < 30}
+                  />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </main>
+      {finaleOpen && winner && snapshot.ticket ? (
         <TicketFinale
           finalists={finalists}
           demo={false}
-          frozenTicket={winnerTicket}
-          onClose={closeFinale}
+          frozenTicket={snapshot.ticket}
+          onClose={() => setFinaleOpen(false)}
         />
       ) : null}
-    </div>
+    </>
   );
 };
