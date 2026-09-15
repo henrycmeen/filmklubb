@@ -202,6 +202,11 @@
   z-index: 3;
 }
 
+/* Keep the closed-round signal visible, but motionless with reduced motion. */
+.nextTvNoSignal .nextTvStatic {
+  display: block;
+}
+
 .nextTvStaticGrain {
   filter: brightness(0.78) contrast(1.85) saturate(0);
   height: 112%;

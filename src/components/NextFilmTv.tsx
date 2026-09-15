@@ -72,6 +72,20 @@ const TvStaticNoise = ({ poweringOn = false }: { poweringOn?: boolean }) => (
   </span>
 );
 
+export const StaticFilmTv = () => (
+  <div
+    className={`${styles.nextTv} ${styles.nextTvNoSignal}`}
+    role="img"
+    aria-label="TV med skurring"
+  >
+    <div className={styles.nextTvScreen}>
+      <TvStaticNoise />
+      <span className={styles.nextTvShield} aria-hidden="true" />
+      <span className={styles.nextTvGlow} aria-hidden="true" />
+    </div>
+  </div>
+);
+
 const EmptyNextFilmTv = () => {
   const [isTuning, setIsTuning] = useState(true);
 

@@ -41,9 +41,6 @@
   pointer-events: none;
   animation: arrive 1800ms ease-out both;
 }
-.powerSwitch[data-attention="true"]::after {
-  animation: nudge 1000ms ease-in-out;
-}
 @keyframes arrive {
   0%,
   100% {
@@ -56,34 +53,8 @@
       inset 0 0 18px #e7daa244;
   }
 }
-@keyframes nudge {
-  0%,
-  50%,
-  100% {
-    opacity: 0.2;
-  }
-  25%,
-  75% {
-    opacity: 1;
-    box-shadow:
-      0 0 32px #e7daa299,
-      inset 0 0 20px #e7daa255;
-  }
-}
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
 @media (prefers-reduced-motion: reduce) {
-  .powerSwitch::after,
-  .powerSwitch[data-attention="true"]::after {
+  .powerSwitch::after {
     animation: none;
     opacity: 1;
   }
