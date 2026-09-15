@@ -4,7 +4,8 @@ Branch: `feature/closed-voting-preview`, based on `6452f67` from the existing
 Filmklubben ticket implementation. No deployment or real voting changes.
 
 The closed-round view keeps the original TV/trailer and VHS grid. The existing
-physical power button overlaps the TV's lower edge, labelled **Se resultatene**.
+physical power button sits just below the TV, labelled **Se resultatene**.
+Its face is 64px wide (reduced from 84px), with a 24px power icon.
 It glows once on entry. Film clicks only pulse that button; they cannot vote or
 open the cases. Clicking the power button mounts the existing TicketFinale with
 the frozen ticket. Closing it returns to the TV/grid. Reduced-motion users get
@@ -32,7 +33,7 @@ not read production votes, inherit CLUB_DB_PATH, or contact a live vote API.
 - Round and voting API/client/store tests: 48 passing, including frozen ticket/ranking,
   idempotent locking, empty rounds and rejecting added/removed votes after lock.
 - Safari responsive mode at 550px: original TV and grid render with the power
-  button overlapping the TV edge. Film click adds the accessible button hint
+  button below the TV edge. Film click adds the accessible button hint
   without opening the finale; power click starts the existing countdown.
 - The countdown reaches the frozen PlayTime ticket with date/time/venue;
   Escape returns to the TV/grid without replaying the finale.
