@@ -37,6 +37,7 @@ interface FilmClubRoundFormProps {
   readOnly?: boolean;
   freezeCandidates?: boolean;
   onSave: (round: FilmAdminRoundDraft) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 interface FormDraft {
@@ -151,7 +152,7 @@ const dateFields = [
   ["voteEndsAt", "Stemmefrist"],
   ["resultsAt", "Resultatslipp"],
   ["scheduledAt", "Visning"],
-  ["displayUntil", "Visning synlig til"],
+  ["displayUntil", "Resultatet synlig til"],
 ] as const;
 
 const parseDateField = (value: string, label: string): string => {
@@ -175,6 +176,7 @@ export function FilmClubRoundForm({
   readOnly = false,
   freezeCandidates = false,
   onSave,
+  onDirtyChange,
 }: FilmClubRoundFormProps) {
   const fieldPrefix = useId();
   const sourceKey = roundSourceKey(round, defaultScreeningId);
@@ -196,6 +198,13 @@ export function FilmClubRoundForm({
     setQuery("");
   }, [defaultScreeningId, round, sourceKey]);
 
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => {
+      onDirtyChange?.(false);
+    };
+  }, [dirty, onDirtyChange]);
+
   const normalizedCatalogue = useMemo(
     () => normalizeCatalogue(catalogue),
     [catalogue],
@@ -203,18 +212,6 @@ export function FilmClubRoundForm({
   const selectedIds = useMemo(
     () => new Set(draft.candidateIds),
     [draft.candidateIds],
-  );
-  const selectedFilms = useMemo(
-    () =>
-      draft.candidateIds.map(
-        (id) =>
-          normalizedCatalogue.find((entry) => entry.id === id) ?? {
-            id,
-            title: `Film ${id}`,
-            year: 0,
-          },
-      ),
-    [draft.candidateIds, normalizedCatalogue],
   );
   const availableFilms = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("nb-NO");
@@ -318,15 +315,11 @@ export function FilmClubRoundForm({
     >
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.eyebrow}>Rundeoppsett</p>
           <h2 id={`${fieldPrefix}-heading`}>{heading}</h2>
         </div>
-        {round ? (
-          <span className={styles.revision}>rev. {round.revision}</span>
-        ) : null}
       </div>
       <p className={styles.formIntro} id={formDescriptionId}>
-        {intro} Tidspunkter tolkes alltid som Europe/Oslo.
+        {intro} Alle tidspunkter er i Oslo-tid (Europe/Oslo).
       </p>
       {freezeCandidates ? (
         <p className={styles.formLockNotice}>
@@ -342,101 +335,175 @@ export function FilmClubRoundForm({
         }
       >
         <fieldset disabled={disabled}>
-          <legend>Identitet og visning</legend>
-          <div className={styles.field}>
-            <label htmlFor={`${fieldPrefix}-screening-id`}>Screening-ID</label>
-            <input
-              id={`${fieldPrefix}-screening-id`}
-              value={draft.screeningId}
-              readOnly={screeningIdReadOnly}
-              required
-              spellCheck={false}
-              aria-readonly={screeningIdReadOnly ? "true" : undefined}
-              onChange={(event) => update("screeningId", event.target.value)}
-            />
-            <span className={styles.fieldHint}>
-              {screeningIdReadOnly
-                ? "ID-en endres ikke når en runde først er opprettet."
-                : "Velg en stabil ID. Den skal ikke baseres på datoen."}
-            </span>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor={`${fieldPrefix}-venue`}>Sted</label>
-            <input
-              id={`${fieldPrefix}-venue`}
-              value={draft.venue}
-              onChange={(event) => update("venue", event.target.value)}
-              placeholder="Kino eller lokale"
-              required
-            />
+          <legend>Avstemning</legend>
+          <div className={styles.scheduleFields}>
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-voteStartsAt`}>Stemmestart</label>
+              <input
+                id={`${fieldPrefix}-voteStartsAt`}
+                type="datetime-local"
+                value={draft.voteStartsAt}
+                onChange={(event) => update("voteStartsAt", event.target.value)}
+                required
+              />
+              <span className={styles.fieldHint}>
+                Når medlemmene kan begynne å stemme.
+              </span>
+            </div>
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-voteEndsAt`}>Stemmefrist</label>
+              <input
+                id={`${fieldPrefix}-voteEndsAt`}
+                type="datetime-local"
+                value={draft.voteEndsAt}
+                onChange={(event) => update("voteEndsAt", event.target.value)}
+                required
+              />
+              <span className={styles.fieldHint}>
+                Når avstemningen stenger.
+              </span>
+            </div>
           </div>
         </fieldset>
 
         <fieldset disabled={disabled}>
-          <legend>Tidslinje</legend>
+          <legend>Resultater</legend>
           <div className={styles.scheduleFields}>
-            {dateFields.map(([key, label]) => (
-              <div className={styles.field} key={key}>
-                <label htmlFor={`${fieldPrefix}-${key}`}>{label}</label>
-                <input
-                  id={`${fieldPrefix}-${key}`}
-                  type="datetime-local"
-                  value={draft[key]}
-                  onChange={(event) => update(key, event.target.value)}
-                  required
-                />
-                <span className={styles.fieldHint}>Europe/Oslo</span>
-              </div>
-            ))}
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-resultsAt`}>
+                Resultatet vises fra
+              </label>
+              <input
+                id={`${fieldPrefix}-resultsAt`}
+                type="datetime-local"
+                value={draft.resultsAt}
+                onChange={(event) => update("resultsAt", event.target.value)}
+                required
+              />
+              <span className={styles.fieldHint}>
+                Når resultatet blir synlig.
+              </span>
+            </div>
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-displayUntil`}>
+                Resultatet synlig til
+              </label>
+              <input
+                id={`${fieldPrefix}-displayUntil`}
+                type="datetime-local"
+                value={draft.displayUntil}
+                onChange={(event) => update("displayUntil", event.target.value)}
+                required
+              />
+              <span className={styles.fieldHint}>
+                Etter dette finnes arrangementet under tidligere visninger.
+              </span>
+            </div>
           </div>
         </fieldset>
 
-        <fieldset disabled={disabled || freezeCandidates}>
-          <legend>Filmer i avstemningen</legend>
-          <div className={styles.catalogueSummary}>
-            <span>{draft.candidateIds.length} valgt</span>
-            <span>Maks {MAX_CANDIDATES}</span>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor={`${fieldPrefix}-catalogue-search`}>
-              Søk i katalogen
-            </label>
-            <input
-              id={`${fieldPrefix}-catalogue-search`}
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Tittel eller år"
-              autoComplete="off"
-            />
-          </div>
-          {selectedFilms.length ? (
-            <p className={styles.selectedSummary}>
-              Valgt: {selectedFilms.map((film) => film.title).join(", ")}
-            </p>
-          ) : null}
-          <div
-            className={styles.catalogueList}
-            role="group"
-            aria-label="Filmkatalog"
-          >
-            {availableFilms.length ? (
-              availableFilms.map((film) => (
-                <label className={styles.catalogueOption} key={film.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(film.id)}
-                    onChange={() => toggleFilm(film.id)}
-                  />
-                  <span className={styles.catalogueTitle}>{film.title}</span>
-                  <span className={styles.catalogueYear}>{film.year}</span>
-                </label>
-              ))
-            ) : (
-              <p className={styles.emptyState}>Ingen filmer matcher søket.</p>
-            )}
+        <fieldset disabled={disabled}>
+          <legend>Visning</legend>
+          <div className={styles.scheduleFields}>
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-scheduledAt`}>Visning</label>
+              <input
+                id={`${fieldPrefix}-scheduledAt`}
+                type="datetime-local"
+                value={draft.scheduledAt}
+                onChange={(event) => update("scheduledAt", event.target.value)}
+                required
+              />
+              <span className={styles.fieldHint}>Når visningen starter.</span>
+            </div>
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-venue`}>Sted</label>
+              <input
+                id={`${fieldPrefix}-venue`}
+                value={draft.venue}
+                onChange={(event) => update("venue", event.target.value)}
+                placeholder="Kino eller lokale"
+                required
+              />
+              <span className={styles.fieldHint}>
+                Kinoen eller lokalet der visningen skjer.
+              </span>
+            </div>
           </div>
         </fieldset>
+
+        <details className={styles.candidateNames}>
+          <summary>
+            Filmer i avstemningen · {draft.candidateIds.length} valgt
+          </summary>
+          <fieldset
+            disabled={disabled || freezeCandidates}
+            aria-label="Filmer i avstemningen"
+          >
+            <div className={styles.catalogueSummary}>
+              <span>Maks {MAX_CANDIDATES} filmer</span>
+            </div>
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-catalogue-search`}>
+                Søk i katalogen
+              </label>
+              <input
+                id={`${fieldPrefix}-catalogue-search`}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Tittel eller år"
+                autoComplete="off"
+              />
+            </div>
+            <div
+              className={styles.catalogueList}
+              role="group"
+              aria-label="Filmkatalog"
+            >
+              {availableFilms.length ? (
+                availableFilms.map((film) => (
+                  <label className={styles.catalogueOption} key={film.id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(film.id)}
+                      onChange={() => toggleFilm(film.id)}
+                    />
+                    <span className={styles.catalogueTitle}>{film.title}</span>
+                    <span className={styles.catalogueYear}>{film.year}</span>
+                  </label>
+                ))
+              ) : (
+                <p className={styles.emptyState}>Ingen filmer matcher søket.</p>
+              )}
+            </div>
+          </fieldset>
+        </details>
+
+        <details className={styles.candidateNames}>
+          <summary>Avansert</summary>
+          <fieldset disabled={disabled} aria-label="Avanserte innstillinger">
+            <div className={styles.field}>
+              <label htmlFor={`${fieldPrefix}-screening-id`}>
+                Screening-ID
+              </label>
+              <input
+                id={`${fieldPrefix}-screening-id`}
+                value={draft.screeningId}
+                readOnly={screeningIdReadOnly}
+                required
+                spellCheck={false}
+                aria-readonly={screeningIdReadOnly ? "true" : undefined}
+                onChange={(event) => update("screeningId", event.target.value)}
+              />
+              <span className={styles.fieldHint}>
+                {screeningIdReadOnly
+                  ? "Stabil intern ID. Kan ikke endres etter opprettelse."
+                  : "Velg en stabil ID. Den skal ikke baseres på datoen."}
+              </span>
+            </div>
+          </fieldset>
+        </details>
 
         <fieldset disabled={disabled}>
           <legend>Publisering</legend>
@@ -446,7 +513,13 @@ export function FilmClubRoundForm({
               checked={draft.published}
               onChange={(event) => update("published", event.target.checked)}
             />
-            <span>Publiser resultatet når serveren åpner det</span>
+            <span>
+              Aktiver arrangementet etter tidsplanen
+              <br />
+              <span className={styles.fieldHint}>
+                La boksen stå tom for å beholde arrangementet som en kladd.
+              </span>
+            </span>
           </label>
         </fieldset>
 

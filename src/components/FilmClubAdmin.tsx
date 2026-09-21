@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { ScheduledFilmRound } from "@/lib/filmSchedule";
 import { withBasePath } from "@/lib/basePath";
 import { formatOsloDateTime } from "@/lib/filmAdminTime";
+import {
+  adminEventStatus as roundStatus,
+  adminEventTitle,
+} from "@/lib/filmAdminOverview";
+import { FilmClubEventList } from "@/components/FilmClubEventList";
 import {
   FilmClubRoundForm,
   type FilmAdminCatalogueEntry,
@@ -246,99 +251,25 @@ const completedAt = (round: ScheduledFilmRound): string | null => {
   return typeof value === "string" && value ? value : null;
 };
 
-const roundMatchesPointer = (
-  round: ScheduledFilmRound,
-  pointer: FilmClubAdminCurrentPointer | null,
-): boolean => {
-  if (!pointer) return false;
-  return (
-    round.boardId === pointer.boardId ||
-    (round.screeningId === pointer.screeningId &&
-      round.scheduledAt === pointer.scheduledAt)
-  );
-};
-
 const roundTimestamp = (round: ScheduledFilmRound): number => {
   const timestamp = Date.parse(round.scheduledAt);
   return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
 };
 
-interface GroupedRounds {
-  current: ScheduledFilmRound | null;
-  next: ScheduledFilmRound | null;
-  history: ScheduledFilmRound[];
-}
-
-const groupRounds = (
-  data: FilmClubAdminResponse,
-  now: number,
-): GroupedRounds => {
-  const sorted = [...data.rounds].sort((first, second) => {
-    const timestampDifference = roundTimestamp(first) - roundTimestamp(second);
-    return (
-      timestampDifference || first.screeningId.localeCompare(second.screeningId)
-    );
-  });
-  const isPublishedInWindow = (round: ScheduledFilmRound): boolean => {
-    const voteStartsAt = Date.parse(round.voteStartsAt);
-    const displayUntil = Date.parse(round.displayUntil);
-    return (
-      round.published &&
-      Number.isFinite(voteStartsAt) &&
-      now >= voteStartsAt &&
-      Number.isFinite(displayUntil) &&
-      now < displayUntil
-    );
-  };
-  let current =
-    sorted.find(
-      (round) =>
-        !completedAt(round) &&
-        isPublishedInWindow(round) &&
-        roundMatchesPointer(round, data.current),
-    ) ?? null;
-
-  if (!current) {
-    current =
-      sorted.find((round) => {
-        return !completedAt(round) && isPublishedInWindow(round);
-      }) ?? null;
-  }
-
-  const next =
-    sorted.find((round) => {
-      if (round === current || completedAt(round)) return false;
-      if (!round.published) return true;
-      const displayUntil = Date.parse(round.displayUntil);
-      return Number.isFinite(displayUntil) && now < displayUntil;
-    }) ?? null;
-  const history = sorted.filter((round) => round !== current && round !== next);
-  return { current, next, history };
-};
-
-const roundStatus = (round: ScheduledFilmRound, now: number): string => {
-  if (!round.published) return "Utkast";
-  if (completedAt(round)) return "Fullført";
-  if (round.published && now >= roundTimestamp(round)) return "Publisert";
-  const starts = Date.parse(round.voteStartsAt);
-  const ends = Date.parse(round.voteEndsAt);
-  const results = Date.parse(round.resultsAt);
-  if (Number.isFinite(starts) && now < starts) return "Planlagt";
-  if (Number.isFinite(ends) && now < ends) return "Pågår";
-  if (Number.isFinite(results) && now < results) return "Stengt for stemmer";
-  return "Resultat klart";
-};
-
 const isVotingClosed = (round: ScheduledFilmRound, now: number): boolean => {
   const starts = Date.parse(round.voteStartsAt);
   return (
-    Boolean(completedAt(round)) || (Number.isFinite(starts) && now >= starts)
+    Boolean(completedAt(round)) ||
+    (round.published && Number.isFinite(starts) && now >= starts)
   );
 };
 
 const isRoundClosed = (round: ScheduledFilmRound, now: number): boolean => {
   const ends = Date.parse(round.voteEndsAt);
-  return Boolean(completedAt(round)) || (Number.isFinite(ends) && now >= ends);
+  return (
+    Boolean(completedAt(round)) ||
+    (round.published && Number.isFinite(ends) && now >= ends)
+  );
 };
 
 const formatRoundDate = (value: string): string => formatOsloDateTime(value);
@@ -354,8 +285,12 @@ const RoundTimeline = ({ round }: { round: ScheduledFilmRound }) => (
       <dd>{formatRoundDate(round.voteEndsAt)}</dd>
     </div>
     <div className={styles.timelineItem}>
-      <dt>Resultatslipp</dt>
+      <dt>Resultatene vises fra</dt>
       <dd>{formatRoundDate(round.resultsAt)}</dd>
+    </div>
+    <div className={styles.timelineItem}>
+      <dt>Resultatene vises til</dt>
+      <dd>{formatRoundDate(round.displayUntil)}</dd>
     </div>
     <div className={styles.timelineItem}>
       <dt>Visning</dt>
@@ -409,15 +344,12 @@ const RoundSummary = ({
       <div className={styles.sectionHeading}>
         <div>
           <p className={styles.eyebrow}>{eyebrow}</p>
-          <h2 id={`${round.boardId}-heading`}>{round.screeningId}</h2>
+          <h2 id={`${round.boardId}-heading`}>Tidsplan</h2>
         </div>
         <span className={styles.roundStatus} data-status={status}>
           {status}
         </span>
       </div>
-      <p className={styles.roundMeta}>
-        {round.boardId} · rev. {round.revision}
-      </p>
       <RoundTimeline round={round} />
       <div className={styles.roundFacts}>
         <span>{candidateNames.length} filmer valgt</span>
@@ -458,82 +390,12 @@ const RoundSummary = ({
           Fullført {formatRoundDate(completedAt(round) ?? "")}.
         </p>
       ) : null}
-      {status === "Stengt for stemmer" ? (
+      {isRoundClosed(round, now) ? (
         <p className={styles.lockedNotice}>
           Resultatet er låst. Filmutvalget og stemmene er bevart og kan ikke
           endres.
         </p>
       ) : null}
-    </section>
-  );
-};
-
-const HistoryList = ({
-  rounds,
-  catalogue,
-  now,
-}: {
-  rounds: readonly ScheduledFilmRound[];
-  catalogue: readonly FilmAdminCatalogueEntry[];
-  now: number;
-}) => {
-  if (!rounds.length) {
-    return (
-      <section
-        className={styles.historySection}
-        aria-labelledby="history-heading"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.eyebrow}>Historikk</p>
-            <h2 id="history-heading">Ingen tidligere runder</h2>
-          </div>
-        </div>
-        <p className={styles.emptyState}>
-          Historikken fylles ut når en runde er fullført.
-        </p>
-      </section>
-    );
-  }
-
-  const catalogueById = new Map(catalogue.map((film) => [film.id, film]));
-  return (
-    <section
-      className={styles.historySection}
-      aria-labelledby="history-heading"
-    >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.eyebrow}>Historikk</p>
-          <h2 id="history-heading">Tidligere runder</h2>
-        </div>
-        <span className={styles.revision}>{rounds.length}</span>
-      </div>
-      <ol className={styles.historyList}>
-        {rounds.map((round) => {
-          const ids = getRoundCandidateIds(round);
-          const firstFilm = ids.length
-            ? catalogueById.get(ids[0]!)?.title
-            : null;
-          return (
-            <li
-              className={styles.historyRow}
-              key={`${round.boardId}-${round.revision}`}
-            >
-              <span>
-                <strong>{round.screeningId}</strong>
-                <time dateTime={round.scheduledAt}>
-                  {formatRoundDate(round.scheduledAt)} · {round.venue}
-                </time>
-              </span>
-              <span>
-                {roundStatus(round, now)}
-                <small>{firstFilm ?? `${ids.length} filmer`}</small>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
     </section>
   );
 };
@@ -674,6 +536,34 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [selection, setSelection] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const isNew = selection === "new";
+  const selectedRound =
+    programme?.rounds.find((round) => round.boardId === selection) ?? null;
+  const openSelection = (id: string | null) => {
+    if (busyAction !== null) return;
+    if (
+      dirty &&
+      !window.confirm("Du har ulagrede endringer. Gå tilbake uten å lagre?")
+    )
+      return;
+    setDirty(false);
+    setSelection(id);
+  };
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [selection]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   const refresh = useCallback(() => setReloadToken((value) => value + 1), []);
 
@@ -749,8 +639,9 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
       setError(null);
       try {
         await postAdminAction(clubSlug, action);
-        await loadProgramme();
+        const updated = await loadProgramme();
         setNotice(successNotice);
+        return updated;
       } catch (caught) {
         const requestError =
           caught instanceof FilmClubAdminRequestError
@@ -802,14 +693,14 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
     }
   }, [clubSlug]);
 
-  const grouped = useMemo(
-    () => (programme ? groupRounds(programme, now) : null),
-    [now, programme],
-  );
-  const defaultScreeningId = programme?.current?.screeningId ?? "oktober-2026";
-  const nextDefaultScreeningId =
-    grouped?.next?.screeningId ??
-    `${grouped?.current?.screeningId ?? defaultScreeningId}-next`;
+  let newIndex = 1;
+  while (
+    programme?.rounds.some(
+      (round) => round.screeningId === `arrangement-${newIndex}`,
+    )
+  )
+    newIndex++;
+  const nextDefaultScreeningId = `arrangement-${newIndex}`;
 
   const requestClose = useCallback(
     (round: ScheduledFilmRound) => {
@@ -892,7 +783,13 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
         <header className={styles.masthead}>
           <div>
             <p className={styles.eyebrow}>Filmklubben / administrasjon</p>
-            <h1>Planlegg runder.</h1>
+            <h1 ref={headingRef} tabIndex={-1}>
+              {isNew
+                ? "Nytt arrangement"
+                : selectedRound
+                  ? adminEventTitle(selectedRound)
+                  : "Arrangementer"}
+            </h1>
             <p className={styles.clubLine}>
               Klubb: <strong>{clubSlug}</strong>
             </p>
@@ -902,7 +799,16 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
             <button
               className={styles.quietButton}
               type="button"
-              onClick={() => void logout()}
+              onClick={() => {
+                if (
+                  dirty &&
+                  !window.confirm("Logge ut uten å lagre endringene?")
+                )
+                  return;
+                setDirty(false);
+                setSelection(null);
+                void logout();
+              }}
               disabled={busyAction !== null}
             >
               Logg ut
@@ -916,7 +822,15 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
           <button
             className={styles.quietButton}
             type="button"
-            onClick={refresh}
+            onClick={() => {
+              if (
+                dirty &&
+                !window.confirm("Laste inn på nytt uten å lagre endringene?")
+              )
+                return;
+              setDirty(false);
+              refresh();
+            }}
             disabled={busyAction !== null}
           >
             Last inn på nytt
@@ -937,100 +851,103 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
             Administrasjonen kunne ikke lastes. Bruk «Last inn på nytt».
           </p>
         ) : null}
-        {programme && grouped ? (
-          <>
-            {grouped.current ? (
-              <RoundSummary
-                eyebrow="Nåværende"
-                round={grouped.current}
-                now={now}
-                busy={busyAction !== null}
-                catalogue={programme.catalogue}
-                onClose={requestClose}
-                onComplete={requestComplete}
-              />
-            ) : (
-              <section
-                className={styles.roundSection}
-                aria-labelledby="current-heading"
-              >
-                <div className={styles.sectionHeading}>
-                  <div>
-                    <p className={styles.eyebrow}>Nåværende</p>
-                    <h2 id="current-heading">Ingen aktiv runde</h2>
-                  </div>
-                </div>
-                <p className={styles.emptyState}>
-                  Opprett den første runden under.
-                </p>
-              </section>
-            )}
-
-            {grouped.current ? (
-              <section
-                className={styles.editorSection}
-                aria-label="Nåværende plan"
-              >
-                <FilmClubRoundForm
-                  heading="Nåværende plan"
-                  intro="Oppdater tidslinje og sted uten å endre rundens identitet."
-                  round={grouped.current}
-                  catalogue={programme.catalogue}
-                  defaultScreeningId={grouped.current.screeningId}
-                  screeningIdReadOnly
-                  readOnly={isRoundClosed(grouped.current, now)}
-                  freezeCandidates={isVotingClosed(grouped.current, now)}
-                  onSave={async (round) => {
-                    await performAction(
-                      {
-                        action: "save",
-                        expectedRevision: grouped.current?.revision ?? null,
-                        round,
-                      },
-                      "Nåværende plan er lagret.",
-                    );
-                  }}
-                />
-              </section>
-            ) : null}
-
-            <section className={styles.editorSection} aria-label="Neste runde">
-              <FilmClubRoundForm
-                heading={grouped.next ? "Neste runde" : "Klargjør neste runde"}
-                intro={
-                  grouped.next
-                    ? "Rediger planen før stemmingen starter."
-                    : "Lag en ny runde med en stabil screening-ID."
-                }
-                round={grouped.next}
-                catalogue={programme.catalogue}
-                defaultScreeningId={nextDefaultScreeningId}
-                screeningIdReadOnly={Boolean(grouped.next)}
-                readOnly={
-                  grouped.next ? isRoundClosed(grouped.next, now) : false
-                }
-                freezeCandidates={
-                  grouped.next ? isVotingClosed(grouped.next, now) : false
-                }
-                onSave={async (round) => {
-                  await performAction(
-                    {
-                      action: "save",
-                      expectedRevision: grouped.next?.revision ?? null,
-                      round,
-                    },
-                    "Neste runde er lagret.",
-                  );
-                }}
-              />
-            </section>
-
-            <HistoryList
-              rounds={grouped.history}
-              catalogue={programme.catalogue}
+        {programme ? (
+          selection === null ? (
+            <FilmClubEventList
+              rounds={programme.rounds}
               now={now}
+              onOpen={openSelection}
+              onNew={() => openSelection("new")}
             />
-          </>
+          ) : (
+            <>
+              <button
+                className={styles.backButton}
+                type="button"
+                disabled={busyAction !== null}
+                onClick={() => openSelection(null)}
+              >
+                ← Alle arrangementer
+              </button>
+              {selectedRound && isRoundClosed(selectedRound, now) ? (
+                <>
+                  <RoundSummary
+                    eyebrow="Arrangement"
+                    round={selectedRound}
+                    now={now}
+                    busy={busyAction !== null}
+                    catalogue={programme.catalogue}
+                    onClose={requestClose}
+                    onComplete={requestComplete}
+                  />
+                  <a
+                    className={styles.quietButton}
+                    href={withBasePath(
+                      `/${clubSlug}?screening=${encodeURIComponent(selectedRound.screeningId)}&result=1`,
+                    )}
+                  >
+                    Se resultat og billett →
+                  </a>
+                </>
+              ) : selectedRound || isNew ? (
+                <section
+                  className={styles.editorSection}
+                  aria-label="Arrangementets tidsplan"
+                >
+                  <FilmClubRoundForm
+                    key={`${selection}:${reloadToken}`}
+                    heading="Tidsplan"
+                    intro="Bestem når folk kan stemme, og når resultatet vises."
+                    round={selectedRound}
+                    catalogue={programme.catalogue}
+                    defaultScreeningId={
+                      selectedRound?.screeningId ?? nextDefaultScreeningId
+                    }
+                    screeningIdReadOnly={Boolean(selectedRound)}
+                    freezeCandidates={
+                      selectedRound ? isVotingClosed(selectedRound, now) : false
+                    }
+                    onDirtyChange={setDirty}
+                    onSave={async (round) => {
+                      const updated = await performAction(
+                        {
+                          action: "save",
+                          expectedRevision: selectedRound?.revision ?? null,
+                          round,
+                        },
+                        "Arrangementet er lagret.",
+                      );
+                      setDirty(false);
+                      const saved = updated.rounds.find(
+                        (item) => item.screeningId === round.screeningId,
+                      );
+                      if (saved) setSelection(saved.boardId);
+                    }}
+                  />
+                  {selectedRound?.published &&
+                  now >= Date.parse(selectedRound.voteStartsAt) ? (
+                    <div className={styles.roundActions}>
+                      <button
+                        type="button"
+                        className={styles.dangerButton}
+                        disabled={busyAction !== null || dirty}
+                        onClick={() => requestClose(selectedRound)}
+                      >
+                        Avslutt avstemningen nå
+                      </button>
+                      <span className={styles.fieldHint}>
+                        Lukker stemmingen og viser resultatet med en gang.
+                      </span>
+                    </div>
+                  ) : null}
+                </section>
+              ) : (
+                <p className={styles.emptyState}>
+                  Arrangementet finnes ikke lenger. Gå tilbake til oversikten.
+                </p>
+              )}
+            </>
+          )
         ) : null}
       </div>
     </main>

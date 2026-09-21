@@ -17,6 +17,11 @@ at tidsfeltene er fylt ut, og publiseres ikke før administrator velger det.
 
 ## Ruter og bevaring
 
+Admin åpner med arrangementene gruppert som Aktive, Planlagte og Historiske.
+Klikk på ett arrangement for tidsplanen; nye arrangementer opprettes separat.
+Skjemaet skiller avstemning, resultatperiode og visning. Filmutvalg og intern ID
+er sammenfoldet, og navigasjon varsler om ulagrede endringer.
+
 - `/NA/admin`: passordbeskyttet styring av nåværende/neste runde.
 - `/NA`: åpen avstemning, ventetilstand, avsluttet runde eller ingen neste runde.
 - `/NA/historikk`: gjennomførte runder.
