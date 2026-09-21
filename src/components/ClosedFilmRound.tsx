@@ -157,8 +157,6 @@ export const ClosedFilmRound = ({
     }
   }, [openDirectResult, hasTicket, snapshot.snapshotId]);
 
-  const historyHref = withBasePath(`/${clubSlug}/historikk`);
-
   return (
     <>
       <Head>
@@ -196,18 +194,6 @@ export const ClosedFilmRound = ({
             </span>
             <span>Se resultatene</span>
           </button>
-          {winner && snapshot.ticket ? (
-            <button
-              type="button"
-              className={styles.directLink}
-              onClick={() => setDirectOpen(true)}
-            >
-              Vinner og billett
-            </button>
-          ) : null}
-          <a className={styles.historyLink} href={historyHref}>
-            Historikk
-          </a>
           {emptyResult ? (
             <p role="status">Ingen stemmer ble avgitt i denne runden.</p>
           ) : null}

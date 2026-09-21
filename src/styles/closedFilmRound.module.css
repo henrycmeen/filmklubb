@@ -53,35 +53,6 @@
       inset 0 0 18px #e7daa244;
   }
 }
-.directLink,
-.historyLink {
-  color: #aaa9a2;
-  font-size: 0.63rem;
-  letter-spacing: 0.11em;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 0.2rem;
-  text-transform: uppercase;
-}
-.directLink {
-  margin: 0.4rem 0 0;
-  padding: 0.25rem 0.45rem;
-}
-.directLink:hover,
-.directLink:focus-visible,
-.historyLink:hover,
-.historyLink:focus-visible {
-  color: #eeeade;
-  text-decoration-color: currentColor;
-}
-.directLink:focus-visible,
-.historyLink:focus-visible {
-  outline: 2px solid #eeeade;
-  outline-offset: 4px;
-}
-.historyLink {
-  margin-top: 0.55rem;
-}
 .directDialog {
   position: fixed;
   inset: 0;
