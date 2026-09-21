@@ -1,0 +1,149 @@
+.page {
+  --halloween-ink: #f3f2ec;
+  --halloween-muted: #aaa9a2;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #050505;
+  color: var(--halloween-ink);
+}
+
+.header {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 3rem) clamp(1rem, 3vw, 2.5rem) 1.5rem;
+}
+
+.eyebrow,
+.meta,
+.backLink {
+  color: var(--halloween-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 4.6rem);
+  font-weight: 600;
+  letter-spacing: -0.07em;
+  line-height: 0.95;
+}
+
+.intro {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 34rem;
+  margin: 1rem 0 0;
+}
+
+.intro p {
+  margin: 0;
+  color: var(--halloween-muted);
+  font-size: clamp(0.78rem, 1.8vw, 0.95rem);
+  line-height: 1.45;
+}
+
+.intro strong {
+  color: var(--halloween-ink);
+  font-weight: 550;
+}
+
+.backLink {
+  display: inline-block;
+  margin-top: 1.4rem;
+  color: #8f9289;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.22rem;
+}
+
+.backLink:hover,
+.backLink:focus-visible {
+  color: var(--halloween-ink);
+  text-decoration-color: currentColor;
+}
+
+.backLink:focus-visible {
+  outline: 2px solid var(--halloween-ink);
+  outline-offset: 0.35rem;
+}
+
+.catalogue {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 2.5rem) 3.5rem;
+}
+
+.catalogueHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0 0.85rem;
+  color: var(--halloween-muted);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.catalogueHeading p {
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: clamp(0.4rem, 0.9vw, 0.8rem) clamp(0.2rem, 0.55vw, 0.55rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  min-width: 0;
+}
+
+.case {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 0.59;
+}
+
+.filmLabel {
+  margin: 0.45rem 0.1rem 0;
+  color: var(--halloween-muted);
+  font-size: 0.56rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.filmLabel strong {
+  display: block;
+  overflow: hidden;
+  color: var(--halloween-ink);
+  font-size: 0.68rem;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 34rem) {
+  .header {
+    padding-top: 1rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page * {
+    scroll-behavior: auto;
+  }
+}

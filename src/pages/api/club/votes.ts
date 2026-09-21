@@ -1,7 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import filmVoteCatalogue from "@/data/filmVoteCatalogue.json";
 import { normalizeClubSlug } from "@/lib/clubSlug";
+import {
+  combinedFilmIds,
+  legacyFilmCatalogue,
+  legacyFilmIds,
+} from "@/lib/filmCatalogue";
 import { FilmRoundClosedError } from "@/lib/filmRound";
 import {
   FilmRoundNotOpenError,
@@ -30,10 +34,9 @@ interface ApiError {
 
 type ApiResponse = FilmVoteSnapshot | ApiError;
 
-const catalogueFilmIds = filmVoteCatalogue.map((film) => film.id);
-const catalogueFilmIdSet = new Set(catalogueFilmIds);
+const legacyCatalogueFilmIds = legacyFilmCatalogue.map((film) => film.id);
 const tieBreakScores = new Map(
-  filmVoteCatalogue.map((film) => [film.id, film.tmdbVoteAverage]),
+  legacyFilmCatalogue.map((film) => [film.id, film.tmdbVoteAverage]),
 );
 
 const voteInputSchema = z
@@ -42,7 +45,10 @@ const voteInputSchema = z
     hasVoted: z.boolean().optional(),
   })
   .strict()
-  .refine(({ filmId }) => catalogueFilmIdSet.has(filmId));
+  // Scheduled rounds may use seasonal IDs, but the store performs the final
+  // candidate check against the frozen round metadata. This schema only
+  // rejects IDs unknown to every supported catalogue.
+  .refine(({ filmId }) => combinedFilmIds.has(filmId));
 
 const getQueryValue = (
   value: string | string[] | undefined,
@@ -161,6 +167,16 @@ export default async function handler(
         });
       }
 
+      // The unmanaged September board has no frozen schedule metadata. Keep
+      // its historical 107-film boundary explicit; seasonal IDs are accepted
+      // only when the store has a scheduled round whose catalogue contains
+      // them.
+      if (!scheduled && !legacyFilmIds.has(parsedVote.data.filmId)) {
+        return res.status(400).json({
+          error: { code: "INVALID_REQUEST", message: "Ugyldig stemme." },
+        });
+      }
+
       store.setVote(
         boardId,
         parsedVote.data.filmId,
@@ -170,7 +186,8 @@ export default async function handler(
     }
 
     const ids =
-      scheduled?.metadata.catalogue.map((film) => film.id) ?? catalogueFilmIds;
+      scheduled?.metadata.catalogue.map((film) => film.id) ??
+      legacyCatalogueFilmIds;
     const scores = scheduled
       ? new Map(
           scheduled.metadata.catalogue.map((film) => [

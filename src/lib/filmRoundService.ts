@@ -1,7 +1,11 @@
 import filmClubProgrammeConfig from "@/data/filmClubProgramme.json";
-import filmVoteCatalogue from "@/data/filmVoteCatalogue.json";
 import ticketMetadata from "@/data/ticketMetadata.json";
 import { makeFilmTicket } from "@/lib/filmTicket";
+import {
+  combinedFilmCatalogue,
+  legacyFilmCatalogue,
+  type FilmCatalogueEntry,
+} from "@/lib/filmCatalogue";
 import {
   filmRoundLockMetadataSchema,
   type FilmRoundFilm,
@@ -16,7 +20,6 @@ import {
 const FILM_CLUB_TIME_ZONE = "Europe/Oslo";
 const configuredClubIds = new Set(Object.keys(filmClubProgrammeConfig.clubs));
 
-type CatalogueEntry = (typeof filmVoteCatalogue)[number];
 type StaticTicketMetadata = { director?: string };
 
 const staticTicketMetadata = ticketMetadata as Record<
@@ -31,7 +34,7 @@ export interface CurrentFilmRound {
   scheduledAt: string;
 }
 
-const toRoundFilm = (film: CatalogueEntry): FilmRoundFilm => ({
+const toRoundFilm = (film: FilmCatalogueEntry): FilmRoundFilm => ({
   id: film.id,
   title: film.title,
   year: film.year,
@@ -78,6 +81,7 @@ const formatTicketDateTime = (
 };
 
 const createTicketTemplates = (
+  catalogue: ReadonlyArray<FilmCatalogueEntry>,
   scheduledAt: string,
   venue?: string,
 ): Record<string, FilmRoundTicket> => {
@@ -87,7 +91,7 @@ const createTicketTemplates = (
   // bytes stay in their existing local/static stores and are not copied into
   // the SQLite snapshot.
   return Object.fromEntries(
-    filmVoteCatalogue.map((catalogueFilm, index) => {
+    catalogue.map((catalogueFilm, index) => {
       const film = toRoundFilm(catalogueFilm);
       const serial = String(index + 1).padStart(3, "0");
       const baseTicket = makeFilmTicket(film, serial);
@@ -142,11 +146,14 @@ export const buildFilmRoundLockMetadata = (
     clubId: current.clubId,
     screeningId: current.screeningId,
     scheduledAt: current.scheduledAt,
-    catalogue: filmVoteCatalogue.map((film) => ({
+    catalogue: legacyFilmCatalogue.map((film) => ({
       ...toRoundFilm(film),
       tmdbVoteAverage: film.tmdbVoteAverage,
     })),
-    ticketTemplates: createTicketTemplates(current.scheduledAt),
+    ticketTemplates: createTicketTemplates(
+      legacyFilmCatalogue,
+      current.scheduledAt,
+    ),
   });
 };
 
@@ -159,14 +166,18 @@ export const buildScheduledFilmRoundMetadata = (
   candidateIds: number[],
 ): FilmRoundLockMetadata => {
   const ids = new Set(candidateIds);
-  const catalogue = filmVoteCatalogue.filter((film) => ids.has(film.id));
+  const catalogue = combinedFilmCatalogue.filter((film) => ids.has(film.id));
   if (
     ids.size !== candidateIds.length ||
     catalogue.length !== candidateIds.length
   ) {
     throw new Error("Ugyldig filmutvalg.");
   }
-  const templates = createTicketTemplates(scheduledAt, venue);
+  const templates = createTicketTemplates(
+    combinedFilmCatalogue,
+    scheduledAt,
+    venue,
+  );
   return filmRoundLockMetadataSchema.parse({
     clubId,
     screeningId,

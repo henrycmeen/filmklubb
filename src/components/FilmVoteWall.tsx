@@ -7,8 +7,8 @@ import {
   useState,
 } from "react";
 import { VhsCaseArtwork } from "@/components/VhsCaseArtwork";
-import filmVoteCatalogue from "@/data/filmVoteCatalogue.json";
 import { withBasePath } from "@/lib/basePath";
+import { combinedFilmCatalogue, legacyFilmIds } from "@/lib/filmCatalogue";
 import {
   areVoteSnapshotsEqual,
   getFlipMotion,
@@ -23,13 +23,14 @@ import {
 } from "@/lib/filmVoteClient";
 import styles from "@/styles/filmClubProgram.module.css";
 
-const FILM_BY_ID = new Map(filmVoteCatalogue.map((film) => [film.id, film]));
-const FILM_ID_SET = new Set(filmVoteCatalogue.map((film) => film.id));
+const FILM_BY_ID = new Map(
+  combinedFilmCatalogue.map((film) => [film.id, film]),
+);
 const TMDB_SCORE_BY_FILM_ID = new Map(
-  filmVoteCatalogue.map((film) => [film.id, film.tmdbVoteAverage]),
+  combinedFilmCatalogue.map((film) => [film.id, film.tmdbVoteAverage]),
 );
 
-export type FilmVoteMovie = (typeof filmVoteCatalogue)[number];
+export type FilmVoteMovie = (typeof combinedFilmCatalogue)[number];
 
 interface FilmVoteWallProps {
   boardId: string;
@@ -70,7 +71,10 @@ export const FilmVoteWall = ({
           .join(",");
   const candidateIdSet = useMemo(() => {
     if (candidateIdsKey === null) {
-      return FILM_ID_SET;
+      // An omitted candidate list means the unmanaged September round. Keep
+      // it pinned to the historical 107-film catalogue even though scheduled
+      // rounds may use the seasonal combined lookup below.
+      return legacyFilmIds;
     }
 
     return new Set(
@@ -81,7 +85,7 @@ export const FilmVoteWall = ({
     );
   }, [candidateIdsKey]);
   const candidateFilms = useMemo(
-    () => filmVoteCatalogue.filter((film) => candidateIdSet.has(film.id)),
+    () => combinedFilmCatalogue.filter((film) => candidateIdSet.has(film.id)),
     [candidateIdSet],
   );
   const allowedFilmIds = useMemo(

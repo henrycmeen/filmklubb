@@ -64,7 +64,7 @@ const TvStaticNoise = ({ poweringOn = false }: { poweringOn?: boolean }) => (
     {/* eslint-disable-next-line @next/next/no-img-element */}
     <img
       className={styles.nextTvStaticGrain}
-      src={withBasePath("/VHS/program/analog-no-signal-frame.avif")}
+      src={withBasePath("/VHS/program/analog-no-signal-frame.webp")}
       alt=""
       draggable={false}
     />

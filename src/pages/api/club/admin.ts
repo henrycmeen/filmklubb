@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import catalogue from "@/data/filmVoteCatalogue.json";
 import {
   ADMIN_COOKIE,
   verifyAdminSession,
@@ -13,6 +12,7 @@ import {
   getFilmRoundBoardId,
   isConfiguredClub,
 } from "@/lib/filmRoundService";
+import { combinedFilmCatalogue } from "@/lib/filmCatalogue";
 import { FilmScheduleError, getFilmVoteStore } from "@/lib/filmVotes";
 
 const identifier = z
@@ -153,7 +153,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .status(200)
       .json({
         rounds: store.listScheduledRounds(clubId),
-        catalogue: catalogue.map(({ id, title, year }) => ({
+        catalogue: combinedFilmCatalogue.map(({ id, title, year }) => ({
           id,
           title,
           year,
