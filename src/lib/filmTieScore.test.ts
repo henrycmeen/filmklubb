@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { tiedVoteCounts, tieScoreLabel } from "./filmTieScore";
 
-void test("finds only shared vote totals, including zero and three-way ties", () => {
+void test("finds positive vote ties but excludes films with zero votes", () => {
   assert.deepEqual(
     [...tiedVoteCounts([8, 7, 7, 7, 5, 0, 0].map((votes) => ({ votes })))],
-    [7, 0],
+    [7],
   );
+  const zeroTies = tiedVoteCounts([{ votes: 0 }, { votes: 0 }]);
+  assert.equal(tieScoreLabel(zeroTies.has(0), 8.123), null);
   assert.equal(tiedVoteCounts([]).size, 0);
   assert.equal(tiedVoteCounts([{ votes: 8 }]).size, 0);
 });

@@ -4,6 +4,7 @@ export function tiedVoteCounts(
   const seen = new Set<number>();
   const tied = new Set<number>();
   for (const { votes } of ranking) {
+    if (votes <= 0) continue;
     if (seen.has(votes)) tied.add(votes);
     seen.add(votes);
   }
