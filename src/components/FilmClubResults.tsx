@@ -12,8 +12,7 @@ import {
 import { resolveClubSlugParam } from "@/lib/clubSlug";
 import { withBasePath } from "@/lib/basePath";
 import styles from "@/styles/filmClubResults.module.css";
-import { FilmTieScore } from "@/components/FilmTieScore";
-import { tiedVoteCounts } from "@/lib/filmTieScore";
+import { FilmTmdbScore } from "@/components/FilmTmdbScore";
 
 interface FilmClubResultsProps {
   clubSlug: string;
@@ -88,11 +87,9 @@ const ResultStats = ({ results }: { results: FilmClubResultsData }) => (
 const RankingRow = ({
   entry,
   maximumVotes,
-  tied,
 }: {
   entry: FilmClubResultsRankingEntry;
   maximumVotes: number;
-  tied: boolean;
 }) => (
   <li className={styles.rankingRow}>
     <span className={styles.rank} aria-label={`Plass ${entry.rank}`}>
@@ -114,7 +111,7 @@ const RankingRow = ({
       <span className={styles.rankingVotes}>
         {formatCount(entry.votes, "stemme", "stemmer")}
       </span>
-      <FilmTieScore tied={tied} score={entry.tmdbVoteAverage} />
+      <FilmTmdbScore score={entry.tmdbVoteAverage} />
     </div>
   </li>
 );
@@ -128,7 +125,6 @@ const RankingSection = ({
     () => ranking.reduce((maximum, entry) => Math.max(maximum, entry.votes), 0),
     [ranking],
   );
-  const ties = useMemo(() => tiedVoteCounts(ranking), [ranking]);
 
   return (
     <section className={styles.rankingSection} aria-label="Rangering">
@@ -142,7 +138,6 @@ const RankingSection = ({
               key={entry.filmId}
               entry={entry}
               maximumVotes={maximumVotes}
-              tied={ties.has(entry.votes)}
             />
           ))}
         </ol>

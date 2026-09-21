@@ -1,13 +1,6 @@
 import { FilmResultSpine } from "@/components/FilmResultSpine";
-import { FilmTieScore } from "@/components/FilmTieScore";
-import { tiedVoteCounts } from "@/lib/filmTieScore";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { FilmTmdbScore } from "@/components/FilmTmdbScore";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { FilmTicket, type TicketData } from "@/components/FilmTicket";
 import { TicketPrinter } from "@/components/TicketPrinter";
@@ -32,7 +25,6 @@ export function TicketFinale({
   const [finished, setFinished] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const winner = finalists[0]!;
-  const ties = useMemo(() => tiedVoteCounts(finalists), [finalists]);
   const winnerRevealed = currentIndex === 0;
   const [ticket] = useState(
     () => frozenTicket ?? makeFilmTicket(winner.film, "001"),
@@ -132,10 +124,7 @@ export function TicketFinale({
                           <span className={styles.votes}>
                             <strong>{entry.votes}</strong>
                             {entry.votes === 1 ? "stemme" : "stemmer"}
-                            <FilmTieScore
-                              tied={ties.has(entry.votes)}
-                              score={entry.tmdbVoteAverage}
-                            />
+                            <FilmTmdbScore score={entry.tmdbVoteAverage} />
                           </span>
                         </div>
                       </li>
@@ -149,10 +138,7 @@ export function TicketFinale({
               <p>
                 {winner.votes} {winner.votes === 1 ? "stemme" : "stemmer"} ·{" "}
                 {winner.film.year}
-                <FilmTieScore
-                  tied={ties.has(winner.votes)}
-                  score={winner.tmdbVoteAverage}
-                />
+                <FilmTmdbScore score={winner.tmdbVoteAverage} />
               </p>
             </div>
           </div>
@@ -194,10 +180,7 @@ export function TicketFinale({
                   <span className={styles.votes}>
                     <strong>{entry.votes}</strong>{" "}
                     {entry.votes === 1 ? "stemme" : "stemmer"}
-                    <FilmTieScore
-                      tied={ties.has(entry.votes)}
-                      score={entry.tmdbVoteAverage}
-                    />
+                    <FilmTmdbScore score={entry.tmdbVoteAverage} />
                   </span>
                 </li>
               ))}
