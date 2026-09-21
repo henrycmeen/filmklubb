@@ -454,10 +454,10 @@ const LoginPanel = ({
             <p className={styles.eyebrow}>Filmklubben / administrasjon</p>
             <h1>{setup ? "Sett opp tilgang." : "Logg inn."}</h1>
             <p className={styles.clubLine}>
-              Lokal administrasjon for {clubSlug}.
+              Administrasjon for {clubSlug}.
             </p>
           </div>
-          <span className={styles.localMark}>LOKAL</span>
+          <span className={styles.localMark}>ADMIN</span>
         </header>
         {session.needsSetup && !session.canSetup ? (
           <p className={styles.lockedNotice} role="alert">
@@ -472,7 +472,7 @@ const LoginPanel = ({
             <p className={styles.formIntro}>
               {setup
                 ? "Velg et lokalt administratorpassord. Det lagres bare som en sikret serverside-hash."
-                : "Bruk administratorpassordet for denne lokale Filmklubb-instansen."}
+                : "Bruk administratorpassordet for Filmklubben."}
             </p>
             <div className={styles.field}>
               <label htmlFor="film-admin-password">Passord</label>
@@ -532,7 +532,7 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
   const [programmeStatus, setProgrammeStatus] =
     useState<AdminStatus>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState("Sjekker lokal tilgang …");
+  const [notice, setNotice] = useState("Sjekker tilgang …");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -742,7 +742,7 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
     return (
       <main className={styles.page} aria-busy="true">
         <div className={styles.shellNarrow}>
-          <p className={styles.loadingState}>Sjekker lokal tilgang …</p>
+          <p className={styles.loadingState}>Sjekker tilgang …</p>
         </div>
       </main>
     );
@@ -795,7 +795,7 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
             </p>
           </div>
           <div className={styles.headerActions}>
-            <span className={styles.localMark}>LOKAL</span>
+            <span className={styles.localMark}>ADMIN</span>
             <button
               className={styles.quietButton}
               type="button"

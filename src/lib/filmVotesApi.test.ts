@@ -5,6 +5,7 @@ import path from "node:path";
 import { after, test } from "node:test";
 import type { NextApiRequest, NextApiResponse } from "next";
 import filmVoteCatalogue from "@/data/filmVoteCatalogue.json";
+import { normalizeClubSlug } from "@/lib/clubSlug";
 
 const secondFilmId = filmVoteCatalogue[1]!.id;
 const thirdFilmId = filmVoteCatalogue[2]!.id;
@@ -34,7 +35,52 @@ const deviceCookie = (seed: number): Record<string, string> => ({
 
 const { default: handler } = await import("../pages/api/club/votes");
 const { getFilmVoteStore } = await import("./filmVotes");
-const { buildFilmRoundLockMetadata } = await import("./filmRoundService");
+const { buildFilmRoundLockMetadata, buildScheduledFilmRoundMetadata } =
+  await import("./filmRoundService");
+const store = getFilmVoteStore();
+
+const legacyBoardIds = new Set([
+  "na",
+  "default",
+  "na-2026-09-22",
+  "default-2026-09-22",
+]);
+const fixtureScheduleTimes = {
+  voteStartsAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  voteEndsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  resultsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+  scheduledAt: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+  displayUntil: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+};
+
+const ensureScheduledFixture = (boardId: string): void => {
+  if (legacyBoardIds.has(boardId) || store.getScheduledRound(boardId)) {
+    return;
+  }
+
+  const separator = boardId.lastIndexOf("-");
+  assert.ok(separator > 0 && separator < boardId.length - 1);
+  const clubId = boardId.slice(0, separator);
+  const screeningId = boardId.slice(separator + 1);
+  store.saveScheduledRound(
+    {
+      boardId,
+      clubId,
+      screeningId,
+      ...fixtureScheduleTimes,
+      venue: "Test fixture",
+      published: true,
+      metadata: buildScheduledFilmRoundMetadata(
+        clubId,
+        screeningId,
+        fixtureScheduleTimes.scheduledAt,
+        "Test fixture",
+        filmVoteCatalogue.map((film) => film.id),
+      ),
+    },
+    null,
+  );
+};
 
 interface RecordedResponse {
   body: unknown;
@@ -49,6 +95,7 @@ const invoke = async ({
   method,
   query = { boardId: "na" },
   remoteAddress = "127.0.0.1",
+  seedFixture = true,
 }: {
   body?: unknown;
   clientIp?: string;
@@ -56,7 +103,16 @@ const invoke = async ({
   method: string;
   query?: Record<string, string | string[]>;
   remoteAddress?: string;
+  seedFixture?: boolean;
 }): Promise<RecordedResponse> => {
+  const requestedBoardId = Array.isArray(query.boardId)
+    ? query.boardId[0]
+    : query.boardId;
+  const boardId = requestedBoardId ? normalizeClubSlug(requestedBoardId) : null;
+  if (seedFixture && boardId) {
+    ensureScheduledFixture(boardId);
+  }
+
   let responseBody: unknown;
   let statusCode = 200;
   const headers: Record<string, string> = {};
@@ -370,6 +426,30 @@ void test("rejects a request without an explicit screening board", async () => {
   });
 });
 
+void test("rejects an unknown unscheduled board for both reads and writes", async () => {
+  const query = { boardId: "unknown-unscheduled-board" };
+  const expected = {
+    error: { code: "INVALID_REQUEST", message: "Ugyldig stemme." },
+  };
+
+  const read = await invoke({
+    method: "GET",
+    query,
+    seedFixture: false,
+  });
+  assert.equal(read.statusCode, 400);
+  assert.deepEqual(read.body, expected);
+
+  const write = await invoke({
+    body: { filmId: firstFilmId },
+    method: "POST",
+    query,
+    seedFixture: false,
+  });
+  assert.equal(write.statusCode, 400);
+  assert.deepEqual(write.body, expected);
+});
+
 void test("rejects films outside the fixed catalogue", async () => {
   const response = await invoke({
     body: { filmId: 999 },
@@ -407,7 +487,6 @@ void test("rejects unsupported methods with the stable error shape", async () =>
 void test("rejects vote changes after the round has been locked", async () => {
   const boardId = "default-2026-09-22";
   const film = filmVoteCatalogue[0]!;
-  const store = getFilmVoteStore();
   store.setVote(boardId, film.id, "round-closed-voter", true);
   store.lockRound(boardId, buildFilmRoundLockMetadata("default"), 1);
 

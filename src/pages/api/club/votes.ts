@@ -6,6 +6,7 @@ import {
   legacyFilmCatalogue,
   legacyFilmIds,
 } from "@/lib/filmCatalogue";
+import { getActiveVoteBoardId } from "@/lib/filmClubProgramme";
 import { FilmRoundClosedError } from "@/lib/filmRound";
 import {
   FilmRoundNotOpenError,
@@ -38,6 +39,12 @@ const legacyCatalogueFilmIds = legacyFilmCatalogue.map((film) => film.id);
 const tieBreakScores = new Map(
   legacyFilmCatalogue.map((film) => [film.id, film.tmdbVoteAverage]),
 );
+const legacyBoardIds = new Set([
+  "na",
+  "default",
+  getActiveVoteBoardId("na"),
+  getActiveVoteBoardId("default"),
+]);
 
 const voteInputSchema = z
   .object({
@@ -98,6 +105,11 @@ export default async function handler(
   try {
     const store = getFilmVoteStore();
     let scheduled = store.getScheduledRound(boardId);
+    if (!scheduled && !legacyBoardIds.has(boardId)) {
+      return res.status(400).json({
+        error: { code: "INVALID_REQUEST", message: "Ugyldig stemme." },
+      });
+    }
     if (scheduled) {
       store.finalizeDueRounds(scheduled.clubId);
       const now = Date.now();
