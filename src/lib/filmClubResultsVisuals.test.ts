@@ -41,9 +41,10 @@ void test("uses the restrained red cyan and cream results palette", () => {
   assert.match(stylesheet, /--results-accent\s*:\s*var\(--results-red\)/);
 });
 
-void test("shows the same TMDB score used to break vote ties", () => {
+void test("shows the stored TMDB score only for tied vote totals", () => {
   assert.match(
     resultsSource,
-    /TMDB\s*\{formatTmdbScore\(entry\.tmdbVoteAverage\)\}/,
+    /<FilmTieScore tied=\{tied\} score=\{entry\.tmdbVoteAverage\}/,
   );
+  assert.match(resultsSource, /tied=\{ties\.has\(entry\.votes\)\}/);
 });

@@ -143,6 +143,17 @@ void test("parses published history snapshots without consulting the catalogue",
   assert.equal(parsed?.[0]?.snapshot.ranking[0]?.film.title, ticket.film.title);
 });
 
+void test("preserves frozen TMDB scores and accepts older snapshots without them", () => {
+  const response = structuredClone(closedResponse);
+  Object.assign(response.snapshot.ranking[0]!, { tmdbVoteAverage: 8.123 });
+  const parsed = parseFilmRoundResponse(response, "na-2026-09-22");
+  assert.equal(parsed?.status, "closed");
+  if (parsed?.status === "closed") {
+    assert.equal(parsed.snapshot.ranking[0]?.tmdbVoteAverage, 8.123);
+    assert.equal(parsed.snapshot.ranking[1]?.tmdbVoteAverage, undefined);
+  }
+});
+
 void test("rejects stale board and malformed frozen rankings", () => {
   assert.equal(parseFilmRoundResponse(closedResponse, "another-board"), null);
 

@@ -2,6 +2,8 @@ import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FilmResultSpine } from "@/components/FilmResultSpine";
+import { FilmTieScore } from "@/components/FilmTieScore";
+import { tiedVoteCounts } from "@/lib/filmTieScore";
 import { FilmTicket } from "@/components/FilmTicket";
 import { StaticFilmTv } from "@/components/NextFilmTv";
 import { TicketFinale } from "@/components/TicketFinale";
@@ -26,6 +28,10 @@ const DirectWinnerView = ({
   const dialog = useRef<HTMLDialogElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const ticket = snapshot.ticket;
+  const ties = useMemo(
+    () => tiedVoteCounts(snapshot.ranking),
+    [snapshot.ranking],
+  );
 
   useEffect(() => {
     const node = dialog.current;
@@ -83,6 +89,10 @@ const DirectWinnerView = ({
             {snapshot.ranking[0]?.votes ?? 0}{" "}
             {snapshot.ranking[0]?.votes === 1 ? "stemme" : "stemmer"} ·{" "}
             {ticket.film.year}
+            <FilmTieScore
+              tied={ties.has(snapshot.ranking[0]?.votes ?? -1)}
+              score={snapshot.ranking[0]?.tmdbVoteAverage}
+            />
           </p>
           <div
             className={`${ticketDemo.ticketMount} ${styles.directTicketMount}`}
@@ -119,6 +129,10 @@ const DirectWinnerView = ({
                 <span className={styles.directVotes}>
                   <strong>{entry.votes}</strong>{" "}
                   {entry.votes === 1 ? "stemme" : "stemmer"}
+                  <FilmTieScore
+                    tied={ties.has(entry.votes)}
+                    score={entry.tmdbVoteAverage}
+                  />
                 </span>
               </li>
             ))}
@@ -147,7 +161,12 @@ export const ClosedFilmRound = ({
   const hasTicket = Boolean(snapshot.ticket);
   const winner = snapshot.ticket ? snapshot.ranking[0] : undefined;
   const finalists = useMemo<DemoFinalist[]>(
-    () => snapshot.ranking.map(({ film, votes }) => ({ film, votes })),
+    () =>
+      snapshot.ranking.map(({ film, votes, tmdbVoteAverage }) => ({
+        film,
+        votes,
+        tmdbVoteAverage,
+      })),
     [snapshot.ranking],
   );
 

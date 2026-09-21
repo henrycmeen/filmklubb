@@ -12,6 +12,8 @@ import {
 import { resolveClubSlugParam } from "@/lib/clubSlug";
 import { withBasePath } from "@/lib/basePath";
 import styles from "@/styles/filmClubResults.module.css";
+import { FilmTieScore } from "@/components/FilmTieScore";
+import { tiedVoteCounts } from "@/lib/filmTieScore";
 
 interface FilmClubResultsProps {
   clubSlug: string;
@@ -23,14 +25,6 @@ const POLL_INTERVAL_MS = 1_500;
 
 const formatCount = (count: number, singular: string, plural: string): string =>
   `${count} ${count === 1 ? singular : plural}`;
-
-const tmdbScoreFormatter = new Intl.NumberFormat("nb-NO", {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-});
-
-const formatTmdbScore = (score: number): string =>
-  tmdbScoreFormatter.format(score);
 
 const formatDateTime = (value: string): string => {
   const date = new Date(value);
@@ -94,9 +88,11 @@ const ResultStats = ({ results }: { results: FilmClubResultsData }) => (
 const RankingRow = ({
   entry,
   maximumVotes,
+  tied,
 }: {
   entry: FilmClubResultsRankingEntry;
   maximumVotes: number;
+  tied: boolean;
 }) => (
   <li className={styles.rankingRow}>
     <span className={styles.rank} aria-label={`Plass ${entry.rank}`}>
@@ -118,9 +114,7 @@ const RankingRow = ({
       <span className={styles.rankingVotes}>
         {formatCount(entry.votes, "stemme", "stemmer")}
       </span>
-      <span className={styles.rankingScore}>
-        TMDB {formatTmdbScore(entry.tmdbVoteAverage)}
-      </span>
+      <FilmTieScore tied={tied} score={entry.tmdbVoteAverage} />
     </div>
   </li>
 );
@@ -134,6 +128,7 @@ const RankingSection = ({
     () => ranking.reduce((maximum, entry) => Math.max(maximum, entry.votes), 0),
     [ranking],
   );
+  const ties = useMemo(() => tiedVoteCounts(ranking), [ranking]);
 
   return (
     <section className={styles.rankingSection} aria-label="Rangering">
@@ -147,6 +142,7 @@ const RankingSection = ({
               key={entry.filmId}
               entry={entry}
               maximumVotes={maximumVotes}
+              tied={ties.has(entry.votes)}
             />
           ))}
         </ol>

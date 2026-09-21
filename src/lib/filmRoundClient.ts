@@ -27,6 +27,7 @@ const ticketSchema = z.object({
 const rankingEntrySchema = z.object({
   film: filmSchema,
   votes: z.number().int().nonnegative(),
+  tmdbVoteAverage: z.number().finite().optional(),
 });
 
 const statsSchema = z.object({

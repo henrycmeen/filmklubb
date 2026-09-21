@@ -34,6 +34,7 @@ export function makeFilmTicket(
 export interface DemoFinalist {
   film: TicketData["film"];
   votes: number;
+  tmdbVoteAverage?: number;
 }
 // The public demo only stores a visitor's open/closed cases. These explicitly
 // fictional totals illustrate a whole club's result without touching club APIs.
