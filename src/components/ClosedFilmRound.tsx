@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FilmResultSpine } from "@/components/FilmResultSpine";
 import { FilmTmdbScore } from "@/components/FilmTmdbScore";
+import { FilmRoundStats } from "@/components/FilmRoundStats";
 import { FilmTicket } from "@/components/FilmTicket";
 import { StaticFilmTv } from "@/components/NextFilmTv";
 import { TicketFinale } from "@/components/TicketFinale";
@@ -102,6 +103,7 @@ const DirectWinnerView = ({
           className={styles.directRankingSection}
           aria-labelledby="full-ranking-heading"
         >
+          <FilmRoundStats stats={snapshot.stats} />
           <div className={styles.directSectionHeading}>
             <p className={styles.directKicker}>HELE AVSTEMNINGEN</p>
             <h2 id="full-ranking-heading">Alle filmene</h2>
@@ -212,6 +214,7 @@ export const ClosedFilmRound = ({
           finalists={finalists}
           demo={false}
           frozenTicket={snapshot.ticket}
+          stats={snapshot.stats}
           onClose={() => setFinaleOpen(false)}
         />
       ) : null}

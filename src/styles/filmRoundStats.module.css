@@ -1,0 +1,46 @@
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem 1rem;
+  margin: 0 0 2rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid #272a24;
+  border-bottom: 1px solid #272a24;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats dt {
+  color: #a7ab9c;
+  font-size: 0.625rem;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stats dd {
+  margin: 0.5rem 0 0;
+  color: #eeeade;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 550;
+}
+
+.lastVote {
+  grid-column: 1 / -1;
+}
+
+.lastVote dd {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 40rem) {
+  .stats {
+    grid-template-columns: 1fr 1fr 1.25fr;
+  }
+
+  .lastVote {
+    grid-column: auto;
+  }
+}

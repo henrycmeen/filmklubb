@@ -1,5 +1,7 @@
 import { FilmResultSpine } from "@/components/FilmResultSpine";
 import { FilmTmdbScore } from "@/components/FilmTmdbScore";
+import { FilmRoundStats } from "@/components/FilmRoundStats";
+import type { FilmRoundStats as RoundStats } from "@/lib/filmRoundClient";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { FilmTicket, type TicketData } from "@/components/FilmTicket";
@@ -13,11 +15,13 @@ export function TicketFinale({
   onClose,
   demo = true,
   frozenTicket,
+  stats,
 }: {
   finalists: DemoFinalist[];
   onClose: () => void;
   demo?: boolean;
   frozenTicket?: TicketData;
+  stats?: RoundStats;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [currentIndex, setCurrentIndex] = useState(finalists.length - 1);
@@ -161,6 +165,7 @@ export function TicketFinale({
             className={styles.allResults}
             aria-label="Resultater for alle filmene"
           >
+            {stats && <FilmRoundStats stats={stats} />}
             <header className={styles.resultsHeader}>
               <h2>Hele avstemningen</h2>
             </header>
