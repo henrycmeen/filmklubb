@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClosedFilmRound } from "@/components/ClosedFilmRound";
 import { FilmVoteWall, type FilmVoteMovie } from "@/components/FilmVoteWall";
 import { formatFilmDate } from "@/components/filmClubProgramData";
-import { NextFilmTv } from "@/components/NextFilmTv";
+import { NextFilmTv, StaticFilmTv } from "@/components/NextFilmTv";
+import { withBasePath } from "@/lib/basePath";
 import {
   fetchFilmRoundStatus,
   isFilmRoundAbortError,
@@ -19,7 +20,28 @@ import styles from "@/styles/filmClubProgram.module.css";
 type RoundState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "open"; boardId: string }
+  | {
+      status: "open";
+      boardId: string;
+      scheduledAt?: string;
+      venue?: string;
+      candidateIds?: number[];
+    }
+  | {
+      status: "scheduled";
+      boardId: string;
+      opensAt: string;
+      scheduledAt: string;
+      venue?: string;
+    }
+  | {
+      status: "awaiting";
+      boardId: string;
+      resultsAt: string;
+      scheduledAt: string;
+      venue?: string;
+    }
+  | { status: "idle" }
   | { status: "closed"; boardId: string; snapshot: FilmRoundSnapshot };
 
 const INITIAL_ROUND_STATE: RoundState = { status: "loading" };
@@ -40,11 +62,22 @@ const getScreeningId = (
   return normalized;
 };
 
+const isDirectResultRequest = (
+  value: string | string[] | undefined,
+): boolean => {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate === "1" || candidate?.toLowerCase() === "true";
+};
+
 export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
   const router = useRouter();
   const requestedScreeningId = useMemo(
     () => (router.isReady ? getScreeningId(router.query.screening) : undefined),
     [router.isReady, router.query.screening],
+  );
+  const requestedDirectResult = useMemo(
+    () => router.isReady && isDirectResultRequest(router.query.result),
+    [router.isReady, router.query.result],
   );
   const programme = getFilmClubProgramme(clubSlug);
   const fallbackBoardId = getActiveVoteBoardId(clubSlug);
@@ -91,13 +124,48 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
           return;
         }
         if (status.status === "closed") {
+          const previous = roundStateRef.current;
+          if (
+            previous.status === "closed" &&
+            previous.snapshot.snapshotId === status.snapshot.snapshotId
+          ) {
+            return;
+          }
           updateRoundState({
             status: "closed",
             boardId: status.boardId,
             snapshot: status.snapshot,
           });
+        } else if (status.status === "open") {
+          updateRoundState({
+            status: "open",
+            boardId: status.boardId,
+            ...(status.scheduledAt ? { scheduledAt: status.scheduledAt } : {}),
+            ...(status.venue ? { venue: status.venue } : {}),
+            ...(status.candidateIds
+              ? { candidateIds: status.candidateIds }
+              : {}),
+          });
+        } else if (status.status === "scheduled") {
+          updateRoundState({
+            status: "scheduled",
+            boardId: status.boardId,
+            opensAt: status.opensAt,
+            scheduledAt: status.scheduledAt,
+            ...(status.venue ? { venue: status.venue } : {}),
+          });
+        } else if (status.status === "awaiting") {
+          updateRoundState({
+            status: "awaiting",
+            boardId: status.boardId,
+            resultsAt: status.resultsAt,
+            scheduledAt: status.scheduledAt,
+            ...(status.venue ? { venue: status.venue } : {}),
+          });
         } else {
-          updateRoundState({ status: "open", boardId: status.boardId });
+          // A transition away from a closed round must clear the frozen
+          // snapshot so an old result cannot remain visible on the next round.
+          updateRoundState({ status: "idle" });
         }
       } catch (error) {
         if (
@@ -133,7 +201,8 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
     const refreshWhenVisible = () => {
       if (
         document.visibilityState === "visible" &&
-        roundStateRef.current.status !== "closed"
+        roundStateRef.current.status !== "loading" &&
+        roundStateRef.current.status !== "error"
       ) {
         void refreshRound({ force: true });
       }
@@ -152,7 +221,7 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
   }, [refreshRound, updateRoundState]);
 
   useEffect(() => {
-    if (roundState.status !== "open") {
+    if (roundState.status === "loading" || roundState.status === "error") {
       return;
     }
 
@@ -170,9 +239,27 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
   }, [refreshRound]);
 
   const boardId =
-    roundState.status === "open" || roundState.status === "closed"
-      ? roundState.boardId
-      : fallbackBoardId;
+    "boardId" in roundState ? roundState.boardId : fallbackBoardId;
+
+  const scheduledAt =
+    roundState.status === "closed"
+      ? roundState.snapshot.scheduledAt
+      : "scheduledAt" in roundState && roundState.scheduledAt
+        ? roundState.scheduledAt
+        : roundState.status === "idle"
+          ? null
+          : programme.activeScreening.scheduledAt;
+
+  const statusLabel =
+    roundState.status === "scheduled"
+      ? "Neste avstemning"
+      : roundState.status === "awaiting"
+        ? "Stemmingen er avsluttet"
+        : roundState.status === "idle"
+          ? "Filmklubben"
+          : "Neste film";
+
+  const historyHref = withBasePath(`/${clubSlug}/historikk`);
 
   useEffect(() => {
     setLeader(null);
@@ -182,6 +269,8 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
     return (
       <ClosedFilmRound
         key={roundState.snapshot.snapshotId}
+        clubSlug={clubSlug}
+        openDirectResult={requestedDirectResult}
         snapshot={roundState.snapshot}
       />
     );
@@ -200,13 +289,19 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
       <main className={styles.programPage}>
         <section className={styles.nextSection} id="neste">
           <div className={styles.sectionLabel}>
-            <span>Neste film</span>
-            <span>{formatFilmDate(programme.activeScreening.scheduledAt)}</span>
+            <span>{statusLabel}</span>
+            {scheduledAt ? <span>{formatFilmDate(scheduledAt)}</span> : null}
           </div>
 
           <div className={styles.nextLayout}>
             <div className={styles.nextCase}>
-              <NextFilmTv movie={leader} />
+              {roundState.status === "scheduled" ||
+              roundState.status === "awaiting" ||
+              roundState.status === "idle" ? (
+                <StaticFilmTv />
+              ) : (
+                <NextFilmTv movie={leader} />
+              )}
             </div>
           </div>
         </section>
@@ -215,6 +310,7 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
           <FilmVoteWall
             key={boardId}
             boardId={boardId}
+            candidateIds={roundState.candidateIds}
             onLeaderChange={setLeader}
             onRoundClosed={handleRoundClosed}
           />
@@ -228,15 +324,32 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
           </section>
         ) : (
           <section className={styles.voteWallSection} aria-live="polite">
-            <p role="status">{roundState.message}</p>
-            <button
-              type="button"
-              onClick={() =>
-                void refreshRound({ force: true, showLoading: true })
-              }
-            >
-              Prøv igjen
-            </button>
+            {roundState.status === "error" ? (
+              <>
+                <p role="status">{roundState.message}</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void refreshRound({ force: true, showLoading: true })
+                  }
+                >
+                  Prøv igjen
+                </button>
+              </>
+            ) : roundState.status === "scheduled" ? (
+              <p role="status">
+                Avstemningen åpner {formatFilmDate(roundState.opensAt)}.
+              </p>
+            ) : roundState.status === "awaiting" ? (
+              <p role="status">
+                Resultatet publiseres {formatFilmDate(roundState.resultsAt)}.
+              </p>
+            ) : (
+              <p role="status">Ingen aktiv avstemning akkurat nå.</p>
+            )}
+            <a className={styles.sectionLabel} href={historyHref}>
+              Se historikk
+            </a>
           </section>
         )}
       </main>

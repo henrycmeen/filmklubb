@@ -41,7 +41,7 @@ Bruk visnings-ID og revisjon fra svaret når du vil låse:
 node --env-file-if-exists=.env --import tsx scripts/club/lock-round.ts --club NA --screening <visnings-id> --expected-revision <revisjon> --commit
 ```
 
-Låsingen lagrer alle resultater, vinner og billett samlet og stopper nye stemmer. Klubbens side viser deretter avslutningen og resultatene. Det finnes foreløpig ingen automatisk frist eller gjenåpning.
+Låsingen lagrer alle resultater, vinner og billett samlet og stopper nye stemmer. Klubbens side viser deretter avslutningen og resultatene. Databaseplanlagte runder har automatisk frist, offentliggjøring og historikk; se [rundeplan og admin](docs/film-round-lifecycle.md). Lukkede runder kan ikke gjenåpnes.
 
 For neste runde legger du inn en ny, unik visnings-ID og gjør den aktiv i programfilen. Den gamle runden beholdes og kan åpnes på klubbens side med `?screening=<visnings-id>`. Billettens tekst og bildelenker lagres; eksterne bildefiler arkiveres ikke i databasen.
 

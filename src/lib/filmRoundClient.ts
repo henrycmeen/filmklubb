@@ -52,6 +52,29 @@ const snapshotSchema = z.object({
 const openRoundSchema = z.object({
   status: z.literal("open"),
   boardId: z.string().trim().min(1).max(64),
+  scheduledAt: z.string().datetime({ offset: true }).optional(),
+  venue: z.string().trim().min(1).max(256).optional(),
+  candidateIds: z.array(z.number().int().positive()).max(200).optional(),
+});
+
+const scheduledRoundSchema = z.object({
+  status: z.literal("scheduled"),
+  boardId: z.string().trim().min(1).max(64),
+  opensAt: z.string().datetime({ offset: true }),
+  scheduledAt: z.string().datetime({ offset: true }),
+  venue: z.string().trim().min(1).max(256).optional(),
+});
+
+const awaitingRoundSchema = z.object({
+  status: z.literal("awaiting"),
+  boardId: z.string().trim().min(1).max(64),
+  resultsAt: z.string().datetime({ offset: true }),
+  scheduledAt: z.string().datetime({ offset: true }),
+  venue: z.string().trim().min(1).max(256).optional(),
+});
+
+const idleRoundSchema = z.object({
+  status: z.literal("idle"),
 });
 
 const closedRoundSchema = z.object({
@@ -62,8 +85,20 @@ const closedRoundSchema = z.object({
 
 const filmRoundResponseSchema = z.discriminatedUnion("status", [
   openRoundSchema,
+  scheduledRoundSchema,
+  awaitingRoundSchema,
   closedRoundSchema,
+  idleRoundSchema,
 ]);
+
+const historyEntrySchema = z.object({
+  snapshot: snapshotSchema,
+  completedAt: z.string().datetime({ offset: true }),
+});
+
+const filmClubHistoryResponseSchema = z.object({
+  history: historyEntrySchema.array().max(200),
+});
 
 export type FilmRoundFilm = z.infer<typeof filmSchema>;
 export type FilmRoundRankingEntry = z.infer<typeof rankingEntrySchema>;
@@ -71,6 +106,7 @@ export type FilmRoundStats = z.infer<typeof statsSchema>;
 export type FilmRoundSnapshot = z.infer<typeof snapshotSchema>;
 export type FilmRoundStatus = z.infer<typeof filmRoundResponseSchema>;
 export type FilmRoundTicket = TicketData;
+export type FilmClubHistoryEntry = z.infer<typeof historyEntrySchema>;
 
 export interface FilmRoundFetchOptions {
   clubSlug: string;
@@ -140,7 +176,11 @@ export const parseFilmRoundResponse = (
   if (!parsed.success) {
     return null;
   }
-  if (expectedBoardId && parsed.data.boardId !== expectedBoardId) {
+  if (
+    expectedBoardId &&
+    "boardId" in parsed.data &&
+    parsed.data.boardId !== expectedBoardId
+  ) {
     return null;
   }
   return validateSnapshot(parsed.data);
@@ -186,6 +226,76 @@ export const fetchFilmRoundStatus = async ({
   if (!parsed) {
     throw new FilmRoundRequestError(
       "Rundestatus hadde et ugyldig format.",
+      200,
+    );
+  }
+  return parsed;
+};
+
+export const parseFilmClubHistoryResponse = (
+  rawValue: unknown,
+): FilmClubHistoryEntry[] | null => {
+  const parsed = filmClubHistoryResponseSchema.safeParse(rawValue);
+  if (!parsed.success) {
+    return null;
+  }
+
+  if (parsed.data.history.some((entry) => !validateHistorySnapshot(entry))) {
+    return null;
+  }
+
+  return parsed.data.history;
+};
+
+const validateHistorySnapshot = ({
+  snapshot,
+}: FilmClubHistoryEntry): boolean => {
+  const rankedFilmIds = snapshot.ranking.map(({ film }) => film.id);
+  return (
+    new Set(rankedFilmIds).size === rankedFilmIds.length &&
+    snapshot.ranking.every(({ votes }) => votes >= 0)
+  );
+};
+
+export const getFilmClubHistoryRequestUrl = (clubSlug: string): string => {
+  const normalizedClubSlug = clubSlug.trim();
+  const query = new URLSearchParams({ clubSlug: normalizedClubSlug });
+  return withBasePath(`/api/club/history?${query.toString()}`);
+};
+
+export const fetchFilmClubHistory = async (
+  clubSlug: string,
+  signal?: AbortSignal,
+): Promise<FilmClubHistoryEntry[]> => {
+  const normalizedClubSlug = clubSlug.trim();
+  if (!normalizedClubSlug) {
+    throw new FilmRoundRequestError("Klubb mangler.", 400);
+  }
+
+  const response = await fetch(
+    getFilmClubHistoryRequestUrl(normalizedClubSlug),
+    {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      signal,
+    },
+  );
+
+  if (!response.ok) {
+    let message = "Historikken kunne ikke hentes.";
+    try {
+      message = getErrorMessage(await response.json()) ?? message;
+    } catch {
+      // Preserve the generic message when the server did not return JSON.
+    }
+    throw new FilmRoundRequestError(message, response.status);
+  }
+
+  const parsed = parseFilmClubHistoryResponse(await response.json());
+  if (!parsed) {
+    throw new FilmRoundRequestError(
+      "Historikken hadde et ugyldig format.",
       200,
     );
   }

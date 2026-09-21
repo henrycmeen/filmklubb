@@ -33,6 +33,7 @@ export type FilmVoteMovie = (typeof filmVoteCatalogue)[number];
 
 interface FilmVoteWallProps {
   boardId: string;
+  candidateIds?: ReadonlyArray<number>;
   onLeaderChange?: (film: FilmVoteMovie | null) => void;
   onRoundClosed?: () => void;
 }
@@ -42,20 +43,53 @@ interface VoteMutation {
   hasVoted: boolean;
 }
 
-const createInitialSnapshot = (boardId: string): FilmVoteClientSnapshot => ({
+const createInitialSnapshot = (
+  boardId: string,
+  candidateFilms: ReadonlyArray<FilmVoteMovie>,
+): FilmVoteClientSnapshot => ({
   boardId,
-  ranking: filmVoteCatalogue.map((film) => ({ filmId: film.id, votes: 0 })),
+  ranking: candidateFilms.map((film) => ({ filmId: film.id, votes: 0 })),
   revision: 0,
   votedFilmIds: [],
 });
 
 export const FilmVoteWall = ({
   boardId,
+  candidateIds,
   onLeaderChange,
   onRoundClosed,
 }: FilmVoteWallProps) => {
+  // The parent polls the round endpoint and may recreate the metadata array on
+  // every response. Keep the candidate signature primitive so an unchanged
+  // round does not reset the wall or its in-flight polling loop.
+  const candidateIdsKey =
+    candidateIds === undefined
+      ? null
+      : Array.from(candidateIds)
+          .sort((first, second) => first - second)
+          .join(",");
+  const candidateIdSet = useMemo(() => {
+    if (candidateIdsKey === null) {
+      return FILM_ID_SET;
+    }
+
+    return new Set(
+      candidateIdsKey
+        .split(",")
+        .filter((value) => value.length > 0)
+        .map((value) => Number(value)),
+    );
+  }, [candidateIdsKey]);
+  const candidateFilms = useMemo(
+    () => filmVoteCatalogue.filter((film) => candidateIdSet.has(film.id)),
+    [candidateIdSet],
+  );
+  const allowedFilmIds = useMemo(
+    () => new Set(candidateFilms.map((film) => film.id)),
+    [candidateFilms],
+  );
   const [snapshot, setSnapshot] = useState<FilmVoteClientSnapshot>(() =>
-    createInitialSnapshot(boardId),
+    createInitialSnapshot(boardId, candidateFilms),
   );
   const [isAuthoritativeSnapshot, setIsAuthoritativeSnapshot] = useState(false);
   const snapshotRef = useRef(snapshot);
@@ -166,17 +200,17 @@ export const FilmVoteWall = ({
       const parsed = parseFilmVoteSnapshot(
         await response.json(),
         boardId,
-        FILM_ID_SET,
+        allowedFilmIds,
       );
       if (parsed) {
         applySnapshot(parsed);
       }
     },
-    [applySnapshot, boardId, onRoundClosed],
+    [allowedFilmIds, applySnapshot, boardId, onRoundClosed],
   );
 
   useEffect(() => {
-    const initialSnapshot = createInitialSnapshot(boardId);
+    const initialSnapshot = createInitialSnapshot(boardId, candidateFilms);
     activeBoardIdRef.current = boardId;
     roundClosedRef.current = false;
     snapshotRef.current = initialSnapshot;
@@ -233,7 +267,7 @@ export const FilmVoteWall = ({
         window.clearTimeout(pollTimer);
       }
     };
-  }, [boardId, loadSnapshot]);
+  }, [boardId, candidateFilms, loadSnapshot]);
 
   useLayoutEffect(() => {
     const leaderId = getPublishedVoteTrailerFilmId(

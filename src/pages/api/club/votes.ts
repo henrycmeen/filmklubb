@@ -3,7 +3,12 @@ import { z } from "zod";
 import filmVoteCatalogue from "@/data/filmVoteCatalogue.json";
 import { normalizeClubSlug } from "@/lib/clubSlug";
 import { FilmRoundClosedError } from "@/lib/filmRound";
-import { getFilmVoteStore, type FilmVoteSnapshot } from "@/lib/filmVotes";
+import {
+  FilmRoundNotOpenError,
+  FilmRoundCandidateError,
+  getFilmVoteStore,
+  type FilmVoteSnapshot,
+} from "@/lib/filmVotes";
 import {
   createDeviceIdentity,
   DEVICE_COOKIE_NAME,
@@ -85,7 +90,52 @@ export default async function handler(
   }
 
   try {
+    const store = getFilmVoteStore();
+    let scheduled = store.getScheduledRound(boardId);
+    if (scheduled) {
+      store.finalizeDueRounds(scheduled.clubId);
+      const now = Date.now();
+      if (
+        !scheduled.published ||
+        now < Date.parse(scheduled.voteStartsAt) ||
+        (now >= Date.parse(scheduled.voteEndsAt) &&
+          now < Date.parse(scheduled.resultsAt))
+      ) {
+        return res
+          .status(409)
+          .json({
+            error: {
+              code: "ROUND_CLOSED",
+              message:
+                "Avstemningen er ikke åpen. Resultatene vises ved offentliggjøring.",
+            },
+          });
+      }
+    }
     const voterSecret = await getOrCreateVoterSecret();
+    // Configuration or the deadline may have changed while reading identity.
+    // Recheck before exposing a ranking, not just before accepting a vote.
+    scheduled = store.getScheduledRound(boardId);
+    if (scheduled) {
+      store.finalizeDueRounds(scheduled.clubId);
+      const now = Date.now();
+      if (
+        !scheduled.published ||
+        now < Date.parse(scheduled.voteStartsAt) ||
+        (now >= Date.parse(scheduled.voteEndsAt) &&
+          now < Date.parse(scheduled.resultsAt))
+      ) {
+        return res
+          .status(409)
+          .json({
+            error: {
+              code: "ROUND_CLOSED",
+              message:
+                "Avstemningen er ikke åpen. Resultatene vises ved offentliggjøring.",
+            },
+          });
+      }
+    }
     const existingVoterKey = parseDeviceIdentity(
       req.cookies?.[DEVICE_COOKIE_NAME],
       voterSecret,
@@ -103,8 +153,6 @@ export default async function handler(
         }),
       );
     }
-    const store = getFilmVoteStore();
-
     if (req.method === "POST") {
       const parsedVote = voteInputSchema.safeParse(req.body);
       if (!parsedVote.success) {
@@ -121,19 +169,54 @@ export default async function handler(
       );
     }
 
+    const ids =
+      scheduled?.metadata.catalogue.map((film) => film.id) ?? catalogueFilmIds;
+    const scores = scheduled
+      ? new Map(
+          scheduled.metadata.catalogue.map((film) => [
+            film.id,
+            film.tmdbVoteAverage,
+          ]),
+        )
+      : tieBreakScores;
+    const snapshot = store.getSnapshot(boardId, voterKey, ids, scores);
+    const locked = store.getLockedRound(boardId);
     return res
       .status(200)
       .json(
-        store.getSnapshot(boardId, voterKey, catalogueFilmIds, tieBreakScores),
+        locked
+          ? {
+              ...snapshot,
+              ranking: locked.ranking.map(({ film, votes }) => ({
+                filmId: film.id,
+                votes,
+              })),
+              revision: locked.revision,
+            }
+          : snapshot,
       );
   } catch (error) {
-    if (error instanceof FilmRoundClosedError) {
+    if (
+      error instanceof FilmRoundClosedError ||
+      error instanceof FilmRoundNotOpenError
+    ) {
       return res.status(409).json({
         error: {
           code: "ROUND_CLOSED",
           message: "Avstemningen er låst.",
         },
       });
+    }
+
+    if (error instanceof FilmRoundCandidateError) {
+      return res
+        .status(400)
+        .json({
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Filmen er ikke med i denne avstemningen.",
+          },
+        });
     }
 
     return votingUnavailable(res);

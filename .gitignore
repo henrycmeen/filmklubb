@@ -62,6 +62,7 @@ yarn-error.log*
 
 # locally generated voter identity secret
 data/club/.film-vote-secret
+data/club/admin-auth.json
 
 # vercel
 .vercel

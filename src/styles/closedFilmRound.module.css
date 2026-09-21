@@ -53,6 +53,263 @@
       inset 0 0 18px #e7daa244;
   }
 }
+.directLink,
+.historyLink {
+  color: #aaa9a2;
+  font-size: 0.63rem;
+  letter-spacing: 0.11em;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.2rem;
+  text-transform: uppercase;
+}
+.directLink {
+  margin: 0.4rem 0 0;
+  padding: 0.25rem 0.45rem;
+}
+.directLink:hover,
+.directLink:focus-visible,
+.historyLink:hover,
+.historyLink:focus-visible {
+  color: #eeeade;
+  text-decoration-color: currentColor;
+}
+.directLink:focus-visible,
+.historyLink:focus-visible {
+  outline: 2px solid #eeeade;
+  outline-offset: 4px;
+}
+.historyLink {
+  margin-top: 0.55rem;
+}
+.directDialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  overflow: auto;
+  background: #050505;
+  color: #eeeade;
+  color-scheme: dark;
+}
+.directDialog::backdrop {
+  background: #050505;
+}
+.directTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem clamp(1.25rem, 4vw, 3.75rem);
+  color: #a5a69b;
+  font-size: 0.56rem;
+  letter-spacing: 0.13em;
+}
+.directTopbar button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  color: #eeeade;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+.directContent {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  gap: clamp(2rem, 7vw, 7rem);
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
+}
+.directTicketPanel {
+  text-align: center;
+}
+.directKicker {
+  margin: 0 0 1rem;
+  color: #a9ab9e;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+}
+.directTicketPanel h1 {
+  margin: 0;
+  color: #eeeade;
+  font-size: clamp(1.65rem, 3vw, 2.7rem);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1.08;
+}
+.directMeta {
+  margin: 0.75rem 0 1.5rem;
+  color: #a4a897;
+  font-size: 0.7rem;
+}
+.directTicketMount {
+  width: min(100%, 21.875rem);
+  margin: 0 auto;
+  text-align: left;
+}
+.directActions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  font-size: 0.7rem;
+}
+.directActions button,
+.directActions a {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid #727965;
+  color: #eeeade;
+}
+.directActions a {
+  border-color: transparent;
+  color: #aaa9a2;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.2rem;
+}
+.directActions a:hover,
+.directActions a:focus-visible {
+  color: #eeeade;
+  text-decoration-color: currentColor;
+}
+.directDialog button:focus-visible,
+.directDialog a:focus-visible {
+  outline: 2px solid #eeeade;
+  outline-offset: 4px;
+}
+.directRankingSection {
+  min-width: 0;
+  padding-top: 0.4rem;
+}
+.directSectionHeading {
+  margin-bottom: 1.25rem;
+}
+.directSectionHeading h2 {
+  margin: 0;
+  color: #eeeade;
+  font-size: 1.1rem;
+  font-weight: 550;
+  letter-spacing: -0.035em;
+}
+.directRanking {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.directRanking li {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 5rem;
+  padding: 1rem 0;
+  border-top: 1px solid #272a24;
+}
+.directRanking li[data-winner="true"] {
+  color: #eee3b1;
+}
+.directPlace {
+  flex: 0 0 1.7rem;
+  color: #959a8e;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+.directFilmTitle {
+  flex: 1;
+  min-width: 0;
+}
+.directVotes {
+  flex: 0 0 3.9rem;
+  color: #a7ab9c;
+  font-size: 0.6rem;
+  text-align: right;
+}
+.directVotes strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #eeeade;
+  font-size: 1.45rem;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+@media (max-width: 52rem) {
+  .directContent {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 44rem;
+  }
+  .directRankingSection {
+    padding-top: 1rem;
+  }
+}
+@media (max-width: 34rem) {
+  .directTopbar {
+    padding: 0.75rem 1.25rem;
+  }
+  .directContent {
+    padding-top: 0.75rem;
+  }
+  .directRanking li {
+    gap: 0.7rem;
+  }
+  .directPlace {
+    flex-basis: 1.35rem;
+  }
+  .directVotes {
+    flex-basis: 3.4rem;
+  }
+}
+@media print {
+  :global(body):has(.directDialog[open]) {
+    background: white !important;
+    overflow: visible !important;
+  }
+  :global(body):has(.directDialog[open]) > :not(.directDialog) {
+    display: none !important;
+  }
+  .directDialog[open] {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    background: white;
+    color: #111;
+  }
+  .directTopbar,
+  .directRankingSection,
+  .directActions,
+  .directKicker,
+  .directMeta,
+  .directTicketPanel h1 {
+    display: none !important;
+  }
+  .directContent {
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .directTicketPanel {
+    display: block;
+  }
+  .directTicketMount {
+    width: 80mm !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    animation: none !important;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .powerSwitch::after {
     animation: none;

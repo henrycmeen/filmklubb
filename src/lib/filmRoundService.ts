@@ -79,6 +79,7 @@ const formatTicketDateTime = (
 
 const createTicketTemplates = (
   scheduledAt: string,
+  venue?: string,
 ): Record<string, FilmRoundTicket> => {
   const { date, time } = formatTicketDateTime(scheduledAt);
 
@@ -99,6 +100,7 @@ const createTicketTemplates = (
           film,
           date,
           time,
+          ...(venue ? { venue } : {}),
           ...(director ? { director } : {}),
         },
       ];
@@ -145,5 +147,36 @@ export const buildFilmRoundLockMetadata = (
       tmdbVoteAverage: film.tmdbVoteAverage,
     })),
     ticketTemplates: createTicketTemplates(current.scheduledAt),
+  });
+};
+
+/** Snapshot inputs are prepared before acquiring the database write lock. */
+export const buildScheduledFilmRoundMetadata = (
+  clubId: string,
+  screeningId: string,
+  scheduledAt: string,
+  venue: string,
+  candidateIds: number[],
+): FilmRoundLockMetadata => {
+  const ids = new Set(candidateIds);
+  const catalogue = filmVoteCatalogue.filter((film) => ids.has(film.id));
+  if (
+    ids.size !== candidateIds.length ||
+    catalogue.length !== candidateIds.length
+  ) {
+    throw new Error("Ugyldig filmutvalg.");
+  }
+  const templates = createTicketTemplates(scheduledAt, venue);
+  return filmRoundLockMetadataSchema.parse({
+    clubId,
+    screeningId,
+    scheduledAt,
+    catalogue: catalogue.map((film) => ({
+      ...toRoundFilm(film),
+      tmdbVoteAverage: film.tmdbVoteAverage,
+    })),
+    ticketTemplates: Object.fromEntries(
+      catalogue.map((film) => [String(film.id), templates[String(film.id)]]),
+    ),
   });
 };

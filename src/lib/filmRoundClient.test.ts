@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   FilmRoundRequestError,
+  getFilmClubHistoryRequestUrl,
+  parseFilmClubHistoryResponse,
   parseFilmRoundResponse,
 } from "./filmRoundClient";
 
@@ -62,12 +64,83 @@ void test("parses open and closed round status", () => {
     { status: "open", boardId: "na-2026-09-22" },
   );
 
+  assert.deepEqual(
+    parseFilmRoundResponse({
+      status: "open",
+      boardId: "na-2026-09-22",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+      venue: "Wergelandssalen",
+      candidateIds: [62, 78],
+    }),
+    {
+      status: "open",
+      boardId: "na-2026-09-22",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+      venue: "Wergelandssalen",
+      candidateIds: [62, 78],
+    },
+  );
+
+  assert.deepEqual(
+    parseFilmRoundResponse({
+      status: "scheduled",
+      boardId: "na-2026-09-22",
+      opensAt: "2026-09-20T12:00:00+02:00",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+    }),
+    {
+      status: "scheduled",
+      boardId: "na-2026-09-22",
+      opensAt: "2026-09-20T12:00:00+02:00",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+    },
+  );
+
+  assert.deepEqual(
+    parseFilmRoundResponse({
+      status: "awaiting",
+      boardId: "na-2026-09-22",
+      resultsAt: "2026-09-22T18:00:00+02:00",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+    }),
+    {
+      status: "awaiting",
+      boardId: "na-2026-09-22",
+      resultsAt: "2026-09-22T18:00:00+02:00",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+    },
+  );
+
+  assert.deepEqual(parseFilmRoundResponse({ status: "idle" }), {
+    status: "idle",
+  });
+
   const parsed = parseFilmRoundResponse(closedResponse, "na-2026-09-22");
   assert.equal(parsed?.status, "closed");
   if (parsed?.status === "closed") {
     assert.equal(parsed.snapshot.ranking[0]?.film.title, ticket.film.title);
     assert.equal(parsed.snapshot.ticket?.film.id, ticket.film.id);
   }
+});
+
+void test("parses published history snapshots without consulting the catalogue", () => {
+  assert.equal(
+    getFilmClubHistoryRequestUrl(" na "),
+    "/api/club/history?clubSlug=na",
+  );
+
+  const parsed = parseFilmClubHistoryResponse({
+    history: [
+      {
+        snapshot: closedResponse.snapshot,
+        completedAt: "2026-09-22T18:15:00+02:00",
+      },
+    ],
+  });
+
+  assert.equal(parsed?.length, 1);
+  assert.equal(parsed?.[0]?.snapshot.ticket?.venue, "Wergelandssalen");
+  assert.equal(parsed?.[0]?.snapshot.ranking[0]?.film.title, ticket.film.title);
 });
 
 void test("rejects stale board and malformed frozen rankings", () => {
@@ -77,6 +150,18 @@ void test("rejects stale board and malformed frozen rankings", () => {
   duplicateRanking.snapshot.ranking[1]!.film =
     duplicateRanking.snapshot.ranking[0]!.film;
   assert.equal(parseFilmRoundResponse(duplicateRanking), null);
+
+  assert.equal(
+    parseFilmClubHistoryResponse({
+      history: [
+        {
+          snapshot: duplicateRanking.snapshot,
+          completedAt: "2026-09-22T18:15:00+02:00",
+        },
+      ],
+    }),
+    null,
+  );
 });
 
 void test("rejects malformed round statuses", () => {
@@ -86,6 +171,23 @@ void test("rejects malformed round statuses", () => {
       status: "closed",
       boardId: "na-2026-09-22",
       snapshot: { ...closedResponse.snapshot, ticket: "not-a-ticket" },
+    }),
+    null,
+  );
+  assert.equal(
+    parseFilmRoundResponse({
+      status: "scheduled",
+      boardId: "na-2026-09-22",
+      opensAt: "not-a-date",
+      scheduledAt: "2026-09-22T16:00:00+02:00",
+    }),
+    null,
+  );
+  assert.equal(
+    parseFilmClubHistoryResponse({
+      history: [
+        { snapshot: closedResponse.snapshot, completedAt: "not-a-date" },
+      ],
     }),
     null,
   );

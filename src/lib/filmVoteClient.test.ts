@@ -34,6 +34,45 @@ void test("accepts a complete vote snapshot for the requested club", () => {
   assert.equal(snapshot?.ranking[0]?.filmId, 20);
 });
 
+void test("accepts a complete snapshot for a scheduled candidate subset", () => {
+  const candidateIds = new Set([10, 30]);
+  const snapshot = parseFilmVoteSnapshot(
+    {
+      boardId: "na",
+      ranking: [
+        { filmId: 30, votes: 1 },
+        { filmId: 10, votes: 0 },
+      ],
+      revision: 1,
+      votedFilmIds: [30],
+    },
+    "na",
+    candidateIds,
+  );
+
+  assert.deepEqual(
+    snapshot?.ranking.map(({ filmId }) => filmId),
+    [30, 10],
+  );
+  assert.equal(
+    parseFilmVoteSnapshot(
+      {
+        boardId: "na",
+        ranking: [
+          { filmId: 30, votes: 1 },
+          { filmId: 10, votes: 0 },
+          { filmId: 20, votes: 0 },
+        ],
+        revision: 1,
+        votedFilmIds: [],
+      },
+      "na",
+      candidateIds,
+    ),
+    null,
+  );
+});
+
 void test("rejects snapshots with missing, duplicate, or unknown films", () => {
   const invalidRankings = [
     [
