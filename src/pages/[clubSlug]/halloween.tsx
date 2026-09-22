@@ -36,7 +36,7 @@ const HalloweenPreviewPage: NextPage<HalloweenPreviewProps> = ({
             <strong>29. oktober kl. 16.00</strong> · Wergelandshallen
           </p>
           <p>
-            Avstemningen åpner <strong>23. september kl. 00.00</strong> (Oslo).
+            Avstemningen åpner <strong>22. september kl. 18.00</strong> (Oslo).
           </p>
           <p>
             Frist <strong>28. oktober kl. 16.00</strong> (Oslo).
