@@ -786,7 +786,33 @@ export const getTmdbMovieTrailerYoutubeId = async (
 
   const rawData: unknown = await response.json();
   const parsed = tmdbMovieVideosResponseSchema.parse(rawData);
-  return selectTmdbYoutubeTrailer(parsed.results);
+  const englishTrailer = selectTmdbYoutubeTrailer(parsed.results);
+  if (englishTrailer) return englishTrailer;
+
+  // TMDB filters videos by language. A missing English trailer does not
+  // mean the film has no trailer (for example Ju-on: The Curse).
+  const detailsUrl = new URL(`${TMDB_BASE_URL}/movie/${Math.floor(movieId)}`);
+  const detailsRequest = createTmdbRequest(detailsUrl);
+  const detailsResponse = await fetchWithRetry(
+    detailsRequest.url, detailsRequest.requestInit
+  );
+  if (!detailsResponse.ok) return null;
+  const details = z.object({
+    original_language: z.string().nullable().optional(),
+  }).parse(await detailsResponse.json());
+  const language = details.original_language;
+  if (!language || language === 'en' || !/^[a-z]{2}$/.test(language)) return null;
+
+  url.searchParams.set('language', language);
+  const nativeRequest = createTmdbRequest(url);
+  const nativeResponse = await fetchWithRetry(
+    nativeRequest.url, nativeRequest.requestInit
+  );
+  if (!nativeResponse.ok) return null;
+  const nativeVideos = tmdbMovieVideosResponseSchema.parse(
+    await nativeResponse.json()
+  );
+  return selectTmdbYoutubeTrailer(nativeVideos.results);
 };
 
 const toMovieImageOption = (
