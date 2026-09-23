@@ -323,6 +323,7 @@ void test("prunes only unvoted candidates during voting and preserves existing v
   const saved = store.saveScheduledRound(
     {
       ...input,
+      scheduledAt: new Date(input.scheduledAt).toISOString(),
       metadata: selectRoundCandidates(input.metadata, [10]),
     },
     0,

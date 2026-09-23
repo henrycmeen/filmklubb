@@ -241,7 +241,12 @@ export const validateOsloScheduleOrder = (
   }
 
   for (let index = 1; index < timestamps.length; index += 1) {
-    if (timestamps[index - 1]! >= timestamps[index]!) {
+    // Match the server: deadline <= results <= screening, but opening and
+    // the end of the display period must be strictly separated.
+    const permitsEqual = index === 2 || index === 3;
+    if (permitsEqual
+      ? timestamps[index - 1]! > timestamps[index]!
+      : timestamps[index - 1]! >= timestamps[index]!) {
       const labels = [
         "Stemmestart",
         "Stemmefrist",

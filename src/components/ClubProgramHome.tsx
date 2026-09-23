@@ -308,7 +308,7 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
 
         {roundState.status === "open" ? (
           <FilmVoteWall
-            key={boardId}
+            key={`${boardId}:${roundState.candidateIds?.join(",") ?? "legacy"}`}
             boardId={boardId}
             candidateIds={roundState.candidateIds}
             onLeaderChange={setLeader}

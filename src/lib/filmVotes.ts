@@ -546,7 +546,9 @@ export const createFilmVoteStore = (
   const sameMetadata = (
     first: FilmRoundLockMetadata,
     second: FilmRoundLockMetadata,
-  ): boolean => canonicalJson(first) === canonicalJson(second);
+  ): boolean =>
+    canonicalJson({ ...first, scheduledAt: new Date(first.scheduledAt).toISOString() }) ===
+    canonicalJson({ ...second, scheduledAt: new Date(second.scheduledAt).toISOString() });
 
   const assertBoardIdentity = (input: FilmScheduleInput): void => {
     if (input.boardId !== `${input.clubId}-${input.screeningId}`) {

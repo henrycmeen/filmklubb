@@ -53,3 +53,17 @@ void test("reports schedule milestones that are out of order", () => {
     "Stemmefrist må være før Resultatslipp.",
   );
 });
+
+void test("allows results at the voting deadline, including at screening time", () => {
+  const values = {
+    voteStartsAt: "2026-09-22T16:00:00Z",
+    voteEndsAt: "2026-10-28T15:00:00Z",
+    resultsAt: "2026-10-28T15:00:00Z",
+    scheduledAt: "2026-10-29T15:00:00Z",
+    displayUntil: "2026-10-29T22:59:00Z",
+  };
+  assert.equal(validateOsloScheduleOrder(values), null);
+  assert.equal(validateOsloScheduleOrder({ ...values, scheduledAt: values.resultsAt }), null);
+  assert.notEqual(validateOsloScheduleOrder({ ...values, voteStartsAt: values.voteEndsAt }), null);
+  assert.notEqual(validateOsloScheduleOrder({ ...values, displayUntil: values.scheduledAt }), null);
+});

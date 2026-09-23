@@ -659,13 +659,7 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
           setProgramme(null);
           setProgrammeStatus("loading");
         }
-        if (requestError.status === 409) {
-          setError(
-            "Dataene ble endret et annet sted. Last inn på nytt før du lagrer, slik at stemmer og endringer ikke overskrives.",
-          );
-        } else {
-          setError(requestError.message);
-        }
+        setError(requestError.message);
         throw requestError;
       } finally {
         setBusyAction(null);
