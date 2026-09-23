@@ -8,7 +8,6 @@ export interface VoteCoverSource {
   tmdbId: number;
   posterPath: string;
   outputFile: string;
-  fit?: "cover" | "contain";
 }
 
 const MANIFEST_PATH = path.join(
@@ -54,7 +53,7 @@ export const generateVoteCovers = async (
     const rendered = await renderVhsPoster({
       sourceUrl: `https://image.tmdb.org/t/p/original${source.posterPath}`,
       templateId: "black-case-front-v1",
-      fit: source.fit ?? "cover",
+      fit: "cover",
       width: 520,
       height: 520,
       format: "webp",
