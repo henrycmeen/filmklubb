@@ -23,7 +23,7 @@ export function FilmRoundRanking({
         <li
           key={entry.film.id}
           data-visible="true"
-          data-winner={index === 0}
+          data-winner={index === 0 && entry.votes > 0}
           style={
             intro && index < 10
               ? ({ "--row-delay": `${index * 140}ms` } as CSSProperties)

@@ -273,7 +273,12 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
         clubSlug={clubSlug}
         openDirectResult={requestedDirectResult}
         snapshot={roundState.snapshot}
-        archive={<FilmArchiveShelf clubSlug={clubSlug} />}
+        archive={
+          <FilmArchiveShelf
+            clubSlug={clubSlug}
+            excludeSnapshotId={roundState.snapshot.snapshotId}
+          />
+        }
       />
     );
   }

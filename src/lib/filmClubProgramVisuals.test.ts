@@ -67,7 +67,7 @@ void test("turns the taped archive cassette into the first result without duplic
   assert.match(source, /<FilmRoundRanking/);
   assert.match(
     source,
-    /isSelected\s*\? snapshot.ranking\s*: snapshot.ranking.slice\(0, 1\)/,
+    /isSelected\s*\? snapshot.ranking\s*: winner\s*\? snapshot.ranking.slice\(0, 1\)\s*: \[\]/,
   );
   assert.match(source, /renderFilm=/);
   assert.doesNotMatch(source, /<ArchivedFilmResults/);

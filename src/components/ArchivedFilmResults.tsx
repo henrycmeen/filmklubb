@@ -6,6 +6,7 @@ import type { DemoFinalist } from "@/lib/filmTicket";
 import type { FilmRoundStats as RoundStats } from "@/lib/filmRoundClient";
 import styles from "@/styles/ticketFinale.module.css";
 import archive from "@/styles/filmArchive.module.css";
+import { archiveWinner } from "@/lib/filmArchive";
 
 export function ArchivedFilmResults({
   ranking,
@@ -29,7 +30,7 @@ export function ArchivedFilmResults({
       tabIndex={-1}
       data-inline={!scrollToResults}
       className={`${styles.content} ${archive.results} ${GeistSans.className}`}
-      aria-label={`Resultater fra tidligere visning: ${ranking[0]?.film.title ?? "Ingen vinner"}`}
+      aria-label={`Resultater fra tidligere visning: ${archiveWinner(ranking)?.title ?? "Ingen vinner"}`}
     >
       {stats && <FilmRoundStats stats={stats} />}
       <FilmRoundRanking ranking={ranking} intro />

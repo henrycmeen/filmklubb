@@ -8,6 +8,7 @@ import {
   type FilmClubHistoryEntry,
 } from "@/lib/filmRoundClient";
 import { withBasePath } from "@/lib/basePath";
+import { archiveWinner, otherScreenings } from "@/lib/filmArchive";
 import program from "@/styles/filmClubProgram.module.css";
 import styles from "@/styles/filmArchive.module.css";
 
@@ -18,7 +19,13 @@ const dateFormatter = new Intl.DateTimeFormat("nb-NO", {
   timeZone: "Europe/Oslo",
 });
 
-export function FilmArchiveShelf({ clubSlug }: { clubSlug: string }) {
+export function FilmArchiveShelf({
+  clubSlug,
+  excludeSnapshotId,
+}: {
+  clubSlug: string;
+  excludeSnapshotId?: string;
+}) {
   const [history, setHistory] = useState<FilmClubHistoryEntry[]>([]);
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -36,14 +43,15 @@ export function FilmArchiveShelf({ clubSlug }: { clubSlug: string }) {
     setReturning(null);
     void fetchFilmClubHistory(clubSlug, controller.signal)
       .then((entries) => {
-        if (!controller.signal.aborted) setHistory(entries);
+        if (!controller.signal.aborted)
+          setHistory(otherScreenings(entries, excludeSnapshotId));
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted && !isFilmRoundAbortError(error))
           setFailed(true);
       });
     return () => controller.abort();
-  }, [clubSlug, retry]);
+  }, [clubSlug, retry, excludeSnapshotId]);
 
   useEffect(() => {
     if (!pressing) return;
@@ -102,7 +110,7 @@ export function FilmArchiveShelf({ clubSlug }: { clubSlug: string }) {
             const snapshot = entry.snapshot;
             // Keep the same keyed first row mounted: the dated cassette itself
             // becomes first place instead of adding a second winning cassette.
-            const winner = snapshot.ranking[0]?.film;
+            const winner = archiveWinner(snapshot.ranking);
             const date = dateFormatter.format(new Date(snapshot.scheduledAt));
             const isSelected =
               selected?.snapshot.snapshotId === snapshot.snapshotId;
@@ -113,11 +121,23 @@ export function FilmArchiveShelf({ clubSlug }: { clubSlug: string }) {
                 data-expanded={isSelected}
               >
                 <div id={`${resultsId}-${snapshot.snapshotId}`}>
+                  {!winner && (
+                    <button
+                      type="button"
+                      aria-expanded={isSelected}
+                      aria-controls={`${resultsId}-${snapshot.snapshotId}`}
+                      onClick={() => setSelected(isSelected ? null : entry)}
+                    >
+                      Ingen stemmer · {date} — Se resultatene
+                    </button>
+                  )}
                   <FilmRoundRanking
                     ranking={
                       isSelected
                         ? snapshot.ranking
-                        : snapshot.ranking.slice(0, 1)
+                        : winner
+                          ? snapshot.ranking.slice(0, 1)
+                          : []
                     }
                     intro={isSelected}
                     renderFilm={(result) =>
