@@ -1,4 +1,6 @@
 import { withBasePath } from "@/lib/basePath";
+import { useState } from "react";
+import { cassetteLabelImage } from "@/lib/cassetteArtwork";
 import cassetteLogos from "@/data/filmCassetteLogos.json";
 import cassetteLabels from "@/data/filmCassetteLabels.json";
 import styles from "@/styles/filmClubProgram.module.css";
@@ -14,7 +16,12 @@ export function VhsCaseArtwork({
   eager?: boolean;
 }) {
   const titleLogo = cassetteLogos[coverImage as keyof typeof cassetteLogos];
-  const labelImage = cassetteLabels[coverImage as keyof typeof cassetteLabels];
+  const [failedLabel, setFailedLabel] = useState<string>();
+  const labelImage = cassetteLabelImage(
+    coverImage,
+    cassetteLabels[coverImage as keyof typeof cassetteLabels],
+    failedLabel,
+  );
   return (
     <>
       <span className={styles.voteCaseInterior} aria-hidden="true">
@@ -43,6 +50,9 @@ export function VhsCaseArtwork({
                     alt=""
                     draggable={false}
                     loading={eager ? "eager" : "lazy"}
+                    onError={() => {
+                      if (labelImage !== coverImage) setFailedLabel(labelImage);
+                    }}
                   />
                 ) : null}
                 <span
