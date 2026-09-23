@@ -14,6 +14,7 @@ import {
 } from "@/lib/filmRoundService";
 import { combinedFilmCatalogue } from "@/lib/filmCatalogue";
 import { FilmScheduleError, getFilmVoteStore } from "@/lib/filmVotes";
+import { selectRoundCandidates } from "@/lib/filmRoundCandidates";
 
 const identifier = z
   .string()
@@ -85,11 +86,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .json({ error: { message: "Kontroller feltene og prøv igjen." } });
   try {
     if (!verifyAdminSession(req.cookies?.[ADMIN_COOKIE], clubId))
-      return res
-        .status(401)
-        .json({
-          error: { message: "Logg inn for å administrere filmklubben." },
-        });
+      return res.status(401).json({
+        error: { message: "Logg inn for å administrere filmklubben." },
+      });
     const store = getFilmVoteStore();
     store.finalizeDueRounds(clubId);
     if (parsed?.success) {
@@ -110,20 +109,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
                 "Denne ID-en tilhører dagens avstemning. Bruk en ny ID for neste rundes utkast, eller publiser tidsplanen for dagens runde.",
             },
           });
-        // Preserve frozen film metadata on a schedule-only edit.
-        const sameFilms =
-          existing &&
-          JSON.stringify([...candidateIds].sort((a, b) => a - b)) ===
-            JSON.stringify(
-              existing.metadata.catalogue
-                .map((f) => f.id)
-                .sort((a, b) => a - b),
-            );
+        // Preserve original scores/artwork, also when removing candidates.
+        const existingIds = new Set(
+          existing?.metadata.catalogue.map((film) => film.id),
+        );
+        const subsetOfExisting =
+          existing && candidateIds.every((id) => existingIds.has(id));
         const metadata =
-          sameFilms &&
+          subsetOfExisting &&
           Date.parse(existing.scheduledAt) === Date.parse(fields.scheduledAt) &&
           existing.venue === fields.venue
-            ? existing.metadata
+            ? selectRoundCandidates(existing.metadata, candidateIds)
             : buildScheduledFilmRoundMetadata(
                 clubId,
                 fields.screeningId,
@@ -138,49 +134,41 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       } else {
         const round = store.getScheduledRound(input.boardId);
         if (!round || round.clubId !== clubId)
-          return res
-            .status(404)
-            .json({
-              error: { message: "Runden finnes ikke i denne klubben." },
-            });
+          return res.status(404).json({
+            error: { message: "Runden finnes ikke i denne klubben." },
+          });
         if (input.action === "close")
           store.closeScheduledRound(input.boardId, input.expectedRevision);
         else
           store.completeScheduledRound(input.boardId, input.expectedRevision);
       }
     }
-    return res
-      .status(200)
-      .json({
-        rounds: store.listScheduledRounds(clubId),
-        catalogue: combinedFilmCatalogue.map(({ id, title, year }) => ({
-          id,
-          title,
-          year,
-        })),
-        current: getCurrentFilmRound(clubId),
-      });
+    return res.status(200).json({
+      rounds: store.listScheduledRounds(clubId),
+      catalogue: combinedFilmCatalogue.map(({ id, title, year }) => ({
+        id,
+        title,
+        year,
+      })),
+      current: getCurrentFilmRound(clubId),
+    });
   } catch (error) {
     if (error instanceof z.ZodError)
-      return res
-        .status(400)
-        .json({
-          error: {
-            message:
-              "Kontroller datoene: åpning før frist, deretter offentliggjøring, visning og sluttdato.",
-          },
-        });
-    // Only validated domain messages are exposed; database details stay private.
-    const known = error instanceof FilmScheduleError;
-    return res
-      .status(known ? 409 : 503)
-      .json({
+      return res.status(400).json({
         error: {
-          message: known
-            ? error.message
-            : "Endringen kunne ikke lagres. Last inn siden på nytt og prøv igjen.",
+          message:
+            "Kontroller datoene: åpning før frist, deretter offentliggjøring, visning og sluttdato.",
         },
       });
+    // Only validated domain messages are exposed; database details stay private.
+    const known = error instanceof FilmScheduleError;
+    return res.status(known ? 409 : 503).json({
+      error: {
+        message: known
+          ? error.message
+          : "Endringen kunne ikke lagres. Last inn siden på nytt og prøv igjen.",
+      },
+    });
   }
 }
 

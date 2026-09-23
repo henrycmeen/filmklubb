@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { selectRoundCandidates } from "./filmRoundCandidates";
 import { createHash } from "node:crypto";
 import { CLUB_SQLITE_PATH } from "@/lib/storagePaths";
 import {
@@ -659,7 +660,7 @@ export const createFilmVoteStore = (
     ).find((row) => !catalogueFilmIds.has(row.film_id));
     if (unlistedVote) {
       throw new FilmRoundScheduleNotEditableError(
-        "The schedule catalogue does not contain every existing vote.",
+        "En av filmene du prøver å fjerne har stemmer. Behold filmer med stemmer og prøv igjen.",
       );
     }
   };
@@ -1231,9 +1232,20 @@ export const createFilmVoteStore = (
         );
       }
       if (started && !sameMetadata(existing.metadata, input.metadata)) {
-        throw new FilmRoundScheduleNotEditableError(
-          "The round catalogue and metadata are frozen once voting starts.",
+        const subset = selectRoundCandidates(
+          existing.metadata,
+          input.metadata.catalogue.map((film) => film.id),
         );
+        if (
+          nowMs >= Date.parse(existing.voteEndsAt) ||
+          !sameMetadata(subset, input.metadata)
+        ) {
+          throw new FilmRoundScheduleNotEditableError(
+            "Etter stemmestart kan du bare fjerne filmer uten stemmer. Filmdata og avsluttede runder er låst.",
+          );
+        }
+        // Check under the same transaction as the update, including new votes.
+        assertLegacyVotesFitMetadata(input.boardId, input.metadata);
       }
 
       assertNoPublishedScheduleOverlap(input);

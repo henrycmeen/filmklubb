@@ -4,10 +4,12 @@ import { VhsCaseArtwork } from "@/components/VhsCaseArtwork";
 import { withBasePath } from "@/lib/basePath";
 import { resolveClubSlugParam } from "@/lib/clubSlug";
 import { halloweenFilmCatalogue } from "@/lib/filmCatalogue";
+import type { FilmRoundFilm } from "@/lib/filmRound";
 import styles from "./halloween.module.css";
 
 interface HalloweenPreviewProps {
   clubSlug: "na";
+  films: FilmRoundFilm[];
 }
 
 /**
@@ -17,6 +19,7 @@ interface HalloweenPreviewProps {
  */
 const HalloweenPreviewPage: NextPage<HalloweenPreviewProps> = ({
   clubSlug,
+  films,
 }) => (
   <>
     <Head>
@@ -53,10 +56,10 @@ const HalloweenPreviewPage: NextPage<HalloweenPreviewProps> = ({
       >
         <div className={styles.catalogueHeading}>
           <p id="halloween-catalogue-heading">Kveldens filmutvalg</p>
-          <p>{halloweenFilmCatalogue.length} filmer</p>
+          <p>{films.length} filmer</p>
         </div>
         <ol className={styles.grid}>
-          {halloweenFilmCatalogue.map((film) => (
+          {films.map((film) => (
             <li className={styles.item} key={film.id}>
               <div
                 className={styles.case}
@@ -91,7 +94,10 @@ export const getServerSideProps: GetServerSideProps<
     return { notFound: true };
   }
 
-  return { props: { clubSlug } };
+  const { getFilmVoteStore } = await import("@/lib/filmVotes");
+  const round = getFilmVoteStore().getScheduledRound("na-halloween-2026");
+  const films = round?.published ? round.metadata.catalogue : halloweenFilmCatalogue;
+  return { props: { clubSlug, films } };
 };
 
 export default HalloweenPreviewPage;

@@ -14,6 +14,7 @@ import {
 } from "./filmVotes";
 import { FilmRoundClosedError, type FilmRoundLockMetadata } from "./filmRound";
 import type { FilmScheduleInput } from "./filmSchedule";
+import { selectRoundCandidates } from "./filmRoundCandidates";
 
 const testDirectories: string[] = [];
 const openStores: FilmVoteStore[] = [];
@@ -250,8 +251,7 @@ void test("rejects manual close exactly at opening without mutating the round", 
   assert.throws(
     () => store.closeScheduledRound(saved.boardId, saved.revision),
     (error: unknown) =>
-      error instanceof FilmRoundNotOpenError &&
-      error.code === "ROUND_NOT_OPEN",
+      error instanceof FilmRoundNotOpenError && error.code === "ROUND_NOT_OPEN",
   );
   assert.deepEqual(store.getScheduledRound(saved.boardId), saved);
   assert.equal(store.getLockedRound(saved.boardId), null);
@@ -312,6 +312,71 @@ void test("uses schedule CAS and freezes candidate metadata once voting starts",
     (error: unknown) =>
       error instanceof FilmRoundScheduleNotEditableError &&
       error.code === "ROUND_NOT_EDITABLE",
+  );
+});
+
+void test("prunes only unvoted candidates during voting and preserves existing votes", async () => {
+  const { store } = await createStore(() => new Date("2026-09-21T10:20:00Z"));
+  const input = inputFor();
+  store.saveScheduledRound(input, null);
+  store.recordVote(input.boardId, 10, "voter-a");
+  const saved = store.saveScheduledRound(
+    {
+      ...input,
+      metadata: selectRoundCandidates(input.metadata, [10]),
+    },
+    0,
+  );
+  assert.deepEqual(
+    saved.metadata.catalogue.map((film) => film.id),
+    [10],
+  );
+  assert.equal(saved.revision, 1);
+  assert.equal(store.recordVote(input.boardId, 10, "voter-a"), false);
+  assert.throws(
+    () => store.recordVote(input.boardId, 20, "voter-b"),
+    FilmRoundCandidateError,
+  );
+  assert.equal(store.closeScheduledRound(input.boardId, 1).stats.totalVotes, 1);
+});
+
+void test("rejects pruning a candidate that received a vote since the admin opened", async () => {
+  const { store } = await createStore(() => new Date("2026-09-21T10:20:00Z"));
+  const input = inputFor();
+  const saved = store.saveScheduledRound(input, null);
+  store.recordVote(input.boardId, 20, "voter-a");
+  assert.throws(
+    () =>
+      store.saveScheduledRound(
+        {
+          ...input,
+          metadata: selectRoundCandidates(input.metadata, [10]),
+        },
+        0,
+      ),
+    FilmRoundScheduleNotEditableError,
+  );
+  assert.deepEqual(store.getScheduledRound(input.boardId), saved);
+  assert.equal(store.closeScheduledRound(input.boardId, 0).stats.totalVotes, 1);
+});
+
+void test("cannot restore removed candidates or change scores after voting starts", async () => {
+  const { store } = await createStore(() => new Date("2026-09-21T10:20:00Z"));
+  const input = inputFor();
+  store.saveScheduledRound(input, null);
+  const pruned = store.saveScheduledRound(
+    { ...input, metadata: selectRoundCandidates(input.metadata, [10]) },
+    0,
+  );
+  assert.throws(
+    () => store.saveScheduledRound(input, 1),
+    FilmRoundScheduleNotEditableError,
+  );
+  const changed = structuredClone(pruned);
+  changed.metadata.catalogue[0]!.tmdbVoteAverage = 10;
+  assert.throws(
+    () => store.saveScheduledRound({ ...input, metadata: changed.metadata }, 1),
+    FilmRoundScheduleNotEditableError,
   );
 });
 

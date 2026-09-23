@@ -256,7 +256,7 @@ const roundTimestamp = (round: ScheduledFilmRound): number => {
   return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
 };
 
-const isVotingClosed = (round: ScheduledFilmRound, now: number): boolean => {
+const isVotingStarted = (round: ScheduledFilmRound, now: number): boolean => {
   const starts = Date.parse(round.voteStartsAt);
   return (
     Boolean(completedAt(round)) ||
@@ -905,7 +905,10 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
                     }
                     screeningIdReadOnly={Boolean(selectedRound)}
                     freezeCandidates={
-                      selectedRound ? isVotingClosed(selectedRound, now) : false
+                      selectedRound ? isRoundClosed(selectedRound, now) : false
+                    }
+                    restrictCandidates={
+                      selectedRound ? isVotingStarted(selectedRound, now) : false
                     }
                     onDirtyChange={setDirty}
                     onSave={async (round) => {

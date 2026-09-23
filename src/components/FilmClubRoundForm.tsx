@@ -36,6 +36,7 @@ interface FilmClubRoundFormProps {
   screeningIdReadOnly?: boolean;
   readOnly?: boolean;
   freezeCandidates?: boolean;
+  restrictCandidates?: boolean;
   onSave: (round: FilmAdminRoundDraft) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
 }
@@ -175,6 +176,7 @@ export function FilmClubRoundForm({
   screeningIdReadOnly = Boolean(round),
   readOnly = false,
   freezeCandidates = false,
+  restrictCandidates = false,
   onSave,
   onDirtyChange,
 }: FilmClubRoundFormProps) {
@@ -215,13 +217,15 @@ export function FilmClubRoundForm({
   );
   const availableFilms = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("nb-NO");
+    const originalIds = new Set(round ? getRoundCandidateIds(round) : []);
     return normalizedCatalogue.filter((film) => {
+      if (restrictCandidates && round && !originalIds.has(film.id)) return false;
       if (!needle) return true;
       return `${film.title} ${film.year}`
         .toLocaleLowerCase("nb-NO")
         .includes(needle);
     });
-  }, [normalizedCatalogue, query]);
+  }, [normalizedCatalogue, query, restrictCandidates, round]);
 
   const update = <Key extends keyof FormDraft>(
     key: Key,
@@ -323,8 +327,12 @@ export function FilmClubRoundForm({
       </p>
       {freezeCandidates ? (
         <p className={styles.formLockNotice}>
-          Filmutvalget er låst etter stemmestart. Stemmer kan ikke slettes eller
-          nullstilles.
+          Filmutvalget er låst fordi avstemningen er avsluttet.
+        </p>
+      ) : restrictCandidates ? (
+        <p className={styles.formLockNotice}>
+          Du kan fjerne filmer uten stemmer. Filmer som har fått stemmer,
+          beskyttes når du lagrer. Ingen stemmer slettes.
         </p>
       ) : null}
       <form
