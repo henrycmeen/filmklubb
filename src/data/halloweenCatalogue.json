@@ -12,7 +12,7 @@
     "title": "Don't Look Up",
     "year": 1996,
     "tmdbVoteAverage": 6.4,
-    "coverImage": "/VHS/program/vote-covers/127-dont-look-up.webp",
+    "coverImage": "/VHS/program/vote-covers/153-dont-look-up-english.webp",
     "trailerYoutubeId": "nht9ZXbkFg8"
   },
   {
@@ -206,5 +206,21 @@
     "tmdbVoteAverage": 7.858,
     "coverImage": "/VHS/program/vote-covers/122-the-night-of-the-hunter.webp",
     "trailerYoutubeId": "GAxs6tChiKo"
+  },
+  {
+    "id": 16372,
+    "title": "The Innocents",
+    "year": 1961,
+    "tmdbVoteAverage": 7.5,
+    "coverImage": "/VHS/program/vote-covers/151-the-innocents.webp",
+    "trailerYoutubeId": "aOsF0S65RR0"
+  },
+  {
+    "id": 16307,
+    "title": "The Wicker Man",
+    "year": 1973,
+    "tmdbVoteAverage": 7.3,
+    "coverImage": "/VHS/program/vote-covers/152-the-wicker-man.webp",
+    "trailerYoutubeId": "MXq-NuS24fg"
   }
 ]

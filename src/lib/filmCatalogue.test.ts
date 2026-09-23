@@ -16,8 +16,8 @@ void test("keeps the September catalogue as the unchanged 107-film prefix", () =
   );
 });
 
-void test("merges the 26-film Halloween subset by identity without duplicates", () => {
-  assert.equal(halloweenFilmCatalogue.length, 26);
+void test("merges the expanded Halloween catalogue by identity without duplicates", () => {
+  assert.equal(halloweenFilmCatalogue.length, 28);
   assert.equal(
     new Set(halloweenFilmCatalogue.map((film) => film.id)).size,
     halloweenFilmCatalogue.length,
@@ -44,4 +44,14 @@ void test("merges the 26-film Halloween subset by identity without duplicates", 
       `${film.title} should retain its canonical metadata object in the combined lookup`,
     );
   }
+});
+
+void test("includes the requested original horror films with covers and trailers", () => {
+  for (const [id, year] of [[16372, 1961], [25623, 1977], [16307, 1973], [36095, 1997]]) {
+    const film = halloweenFilmCatalogue.find((entry) => entry.id === id);
+    assert.equal(film?.year, year);
+    assert.ok(film?.coverImage);
+    assert.match(film?.trailerYoutubeId ?? "", /^[A-Za-z0-9_-]{11}$/);
+  }
+  assert.match(halloweenFilmCatalogue.find((film) => film.id === 58405)!.coverImage, /dont-look-up-english/);
 });

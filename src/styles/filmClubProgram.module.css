@@ -461,14 +461,14 @@
 
 /* Small selections form a centered shelf, including a short wrapped row. */
 @media (min-width: 46.001rem) {
-  .voteGrid:not(:has(> li:nth-child(9))) {
+  .voteGrid:not(:has(> li:nth-child(13))) {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: clamp(0.6rem, 1vw, 1rem);
   }
 
-  .voteGrid:not(:has(> li:nth-child(9))) > li {
+  .voteGrid:not(:has(> li:nth-child(13))) > li {
     flex: 0 0 clamp(6rem, 13vw, 9rem);
   }
 }
