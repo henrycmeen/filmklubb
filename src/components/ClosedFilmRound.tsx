@@ -1,5 +1,6 @@
 import Head from "next/head";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { getFilmResultVariant } from "@/lib/filmResultVariant";
 import { createPortal } from "react-dom";
 import { FilmResultSpine } from "@/components/FilmResultSpine";
 import { FilmTmdbScore } from "@/components/FilmTmdbScore";
@@ -7,6 +8,7 @@ import { FilmRoundStats } from "@/components/FilmRoundStats";
 import { FilmTicket } from "@/components/FilmTicket";
 import { StaticFilmTv } from "@/components/NextFilmTv";
 import { TicketFinale } from "@/components/TicketFinale";
+import { ArchivedFilmResults } from "@/components/ArchivedFilmResults";
 import { formatFilmDate } from "@/components/filmClubProgramData";
 import { withBasePath } from "@/lib/basePath";
 import type { DemoFinalist } from "@/lib/filmTicket";
@@ -139,16 +141,27 @@ export const ClosedFilmRound = ({
   snapshot,
   clubSlug = "default",
   openDirectResult = false,
+  archive,
 }: {
   snapshot: FilmRoundSnapshot;
   clubSlug?: string;
   openDirectResult?: boolean;
+  archive?: ReactNode;
 }) => {
-  const [finaleOpen, setFinaleOpen] = useState(false);
-  const [directOpen, setDirectOpen] = useState(
-    () => openDirectResult && Boolean(snapshot.ticket),
+  const [resultVariant, setResultVariant] = useState(() =>
+    getFilmResultVariant(snapshot.scheduledAt),
   );
+  useEffect(() => {
+    const update = () =>
+      setResultVariant(getFilmResultVariant(snapshot.scheduledAt));
+    update();
+    const timer = window.setInterval(update, 30_000);
+    return () => window.clearInterval(timer);
+  }, [snapshot.scheduledAt]);
+  const [finaleOpen, setFinaleOpen] = useState(false);
+  const [directOpen, setDirectOpen] = useState(() => openDirectResult);
   const [emptyResult, setEmptyResult] = useState(false);
+  const archiveResults = useRef<HTMLDivElement>(null);
   const hasTicket = Boolean(snapshot.ticket);
   const winner = snapshot.ticket ? snapshot.ranking[0] : undefined;
   const finalists = useMemo<DemoFinalist[]>(
@@ -162,7 +175,7 @@ export const ClosedFilmRound = ({
   );
 
   useEffect(() => {
-    if (openDirectResult && hasTicket) {
+    if (openDirectResult) {
       setDirectOpen(true);
     }
   }, [openDirectResult, hasTicket, snapshot.snapshotId]);
@@ -172,53 +185,77 @@ export const ClosedFilmRound = ({
       <Head>
         <title>Filmklubben · Avstemningen er avsluttet</title>
       </Head>
-      <main className={program.programPage}>
-        <section className={program.nextSection}>
-          <div className={program.sectionLabel}>
-            <span>Stemmingen er avsluttet</span>
-            <span>{formatFilmDate(snapshot.scheduledAt)}</span>
-          </div>
-          <div className={program.nextLayout}>
-            <div className={program.nextCase}>
-              <StaticFilmTv />
+      <main className={`${program.programPage} ${program.withArchive}`}>
+        <div className={program.currentProgramme}>
+          <section className={program.nextSection}>
+            <div className={program.sectionLabel}>
+              <span>Stemmingen er avsluttet</span>
+              <span>{formatFilmDate(snapshot.scheduledAt)}</span>
             </div>
-          </div>
-        </section>
-        <div className={styles.resultControl}>
-          <button
-            type="button"
-            className={`${demo.announce} ${styles.announce}`}
-            aria-label="Se resultatene"
-            onClick={() => {
-              if (winner && snapshot.ticket) setFinaleOpen(true);
-              else setEmptyResult(true);
-            }}
-          >
-            <span
-              className={`${demo.powerSwitch} ${styles.powerSwitch}`}
-              aria-hidden="true"
+            <div className={program.nextLayout}>
+              <div className={program.nextCase}>
+                <StaticFilmTv />
+              </div>
+            </div>
+          </section>
+          <div className={styles.resultControl}>
+            <button
+              type="button"
+              className={`${demo.announce} ${styles.announce}`}
+              aria-label="Se resultatene"
+              onClick={() => {
+                if (resultVariant === "archive" && (finaleOpen || directOpen)) {
+                  archiveResults.current?.scrollIntoView({
+                    block: "start",
+                    behavior: "instant",
+                  });
+                  archiveResults.current
+                    ?.querySelector<HTMLElement>("section")
+                    ?.focus({ preventScroll: true });
+                  return;
+                }
+                if (resultVariant === "archive" || (winner && snapshot.ticket))
+                  setFinaleOpen(true);
+                else setEmptyResult(true);
+              }}
             >
-              <svg viewBox="0 0 32 32" fill="none">
-                <path d="M16 4v12M9.3 8.3a11 11 0 1 0 13.4 0" />
-              </svg>
-            </span>
-            <span>Se resultatene</span>
-          </button>
-          {emptyResult ? (
-            <p role="status">Ingen stemmer ble avgitt i denne runden.</p>
-          ) : null}
+              <span
+                className={`${demo.powerSwitch} ${styles.powerSwitch}`}
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 32 32" fill="none">
+                  <path d="M16 4v12M9.3 8.3a11 11 0 1 0 13.4 0" />
+                </svg>
+              </span>
+              <span>Se resultatene</span>
+            </button>
+            {emptyResult ? (
+              <p role="status">Ingen stemmer ble avgitt i denne runden.</p>
+            ) : null}
+          </div>
+          <div ref={archiveResults}>
+            {resultVariant === "archive" && (finaleOpen || directOpen) && (
+              <ArchivedFilmResults
+                key={snapshot.snapshotId}
+                ranking={finalists}
+                stats={snapshot.stats}
+              />
+            )}
+          </div>
         </div>
+        {archive}
       </main>
-      {finaleOpen && winner && snapshot.ticket ? (
+      {finaleOpen && resultVariant === "announcement" ? (
         <TicketFinale
+          variant={resultVariant}
           finalists={finalists}
           demo={false}
-          frozenTicket={snapshot.ticket}
+          frozenTicket={snapshot.ticket ?? undefined}
           stats={snapshot.stats}
           onClose={() => setFinaleOpen(false)}
         />
       ) : null}
-      {directOpen && snapshot.ticket ? (
+      {directOpen && resultVariant === "announcement" && snapshot.ticket ? (
         <DirectWinnerView
           clubSlug={clubSlug}
           snapshot={snapshot}

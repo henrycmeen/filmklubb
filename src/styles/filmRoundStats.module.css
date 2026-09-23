@@ -35,6 +35,23 @@
   line-height: 1.5;
 }
 
+.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
+  margin: 0;
+  color: #a7ab9c;
+  font-size: 0.6rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.compact > span {
+  white-space: nowrap;
+}
+
 @media (min-width: 40rem) {
   .stats {
     grid-template-columns: 1fr 1fr 1.25fr;

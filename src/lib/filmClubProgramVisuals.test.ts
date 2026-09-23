@@ -32,6 +32,21 @@ void test("keeps the TV square and capped at the mobile presentation size", () =
   assert.match(getRuleBody(".nextTv"), /aspect-ratio\s*:\s*1(?:\s*\/\s*1)?/);
 });
 
+void test("keeps the archive below a full opening viewport without shrinking the programme", async () => {
+  const rule = getRuleBody(".currentProgramme");
+  assert.match(rule, /min-height\s*:\s*100vh/);
+  assert.match(rule, /min-height\s*:\s*100dvh/);
+  assert.match(rule, /flex-shrink\s*:\s*0/);
+  assert.doesNotMatch(rule, /(?<!min-)height\s*:/);
+  for (const file of ["ClubProgramHome.tsx", "ClosedFilmRound.tsx"]) {
+    const source = await readFile(
+      new URL(`../components/${file}`, import.meta.url),
+      "utf8",
+    );
+    assert.match(source, /className=\{(?:styles|program)\.currentProgramme\}/);
+  }
+});
+
 void test("lets the cassette wall keep filling wide screens", () => {
   assert.doesNotMatch(getRuleBody(".voteWallSection"), /max-width\s*:/);
   assert.match(
@@ -40,10 +55,70 @@ void test("lets the cassette wall keep filling wide screens", () => {
   );
 });
 
+void test("turns the taped archive cassette into the first result without duplicating it", async () => {
+  const source = await readFile(
+    new URL("../components/FilmArchiveShelf.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../styles/filmArchive.module.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /<FilmRoundRanking/);
+  assert.match(
+    source,
+    /isSelected\s*\? snapshot.ranking\s*: snapshot.ranking.slice\(0, 1\)/,
+  );
+  assert.match(source, /renderFilm=/);
+  assert.doesNotMatch(source, /<ArchivedFilmResults/);
+  assert.match(source, /setSelected\(isSelected \? null : entry\)/);
+  assert.doesNotMatch(source, /scrollIntoView|data-inserting/);
+  assert.match(source, /data-pressing=/);
+  assert.match(source, /data-returning=/);
+  assert.match(source, /<FilmRoundStats[^>]+compact/);
+  assert.match(css, /animation: sinkIntoDark 1.5s/);
+  assert.match(css, /animation: cassetteReturn 650ms/);
+  assert.match(source, /}, 1500\)/);
+  assert.match(source, /setReturning\(null\), 650\)/);
+  assert.doesNotMatch(css, /translateZ|deepShadow/);
+  const insertion = /@keyframes sinkIntoDark \{[\s\S]*?\n\}/;
+  const keyframes = insertion.exec(css)?.[0] ?? "";
+  assert.match(keyframes, /35%\s*\{\s*transform: scale\(0.9\)/);
+  assert.match(keyframes, /75%\s*\{\s*transform: scale\(0.72\)/);
+  assert.match(keyframes, /100%\s*\{\s*transform: scale\(0.58\)/);
+  assert.match(keyframes, /filter: brightness\(0\) blur\(1px\)/);
+});
+
+void test("keeps last-vote time out of compact archive statistics", async () => {
+  const source = await readFile(
+    new URL("../components/FilmRoundStats.tsx", import.meta.url),
+    "utf8",
+  );
+  const compact = source.slice(
+    source.indexOf("if (compact)"),
+    source.indexOf("<dl"),
+  );
+  assert.match(compact, /Totalt/);
+  assert.match(compact, /stemmegivere/);
+  assert.doesNotMatch(compact, /Sist stemt|Enheter|lastVoteAt/);
+  assert.match(source, /formatLastFilmVote\(stats.lastVoteAt\)/);
+});
+
+void test("reveals archive labels after the cassette, then staggers the top ten", async () => {
+  const css = await readFile(
+    new URL("../styles/filmArchive.module.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(css, /archiveTextArrival 320ms ease-out 650ms both/);
+  assert.match(css, /archiveCassetteArrival 560ms/);
+  assert.match(css, /calc\(800ms \+ var\(--row-delay, 0ms\)\)/);
+  assert.match(css, /calc\(1040ms \+ var\(--row-delay, 0ms\)\)/);
+  assert.match(css, /animation-delay: 2620ms/);
+  assert.match(css, /\.archive \*\s*\{\s*animation: none !important/);
+});
+
 void test("zooms trailers to fill the square TV at every width", () => {
-  const videoRule = [
-    ...stylesheet.matchAll(/\.nextTvVideo\s*\{([^}]*)\}/gs),
-  ]
+  const videoRule = [...stylesheet.matchAll(/\.nextTvVideo\s*\{([^}]*)\}/gs)]
     .map((match) => match[1] ?? "")
     .find((rule) => /max-width\s*:\s*none/.test(rule));
   assert.ok(videoRule, "Fant ikke hovedregelen for trailervideoen");

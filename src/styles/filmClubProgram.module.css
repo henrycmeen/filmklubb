@@ -11,6 +11,21 @@
   scroll-behavior: smooth;
 }
 
+.withArchive {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+/* Archive begins below the opening viewport, even with a small film selection.
+   Natural height still wins when the current programme needs more space. */
+.currentProgramme {
+  display: flow-root;
+  flex-shrink: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .programPage a {
   color: inherit;
   text-decoration-color: transparent;

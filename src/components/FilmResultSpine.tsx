@@ -11,9 +11,11 @@ const spineAsset = (name: string) =>
 export function FilmResultSpine({
   film,
   compact = false,
+  eager = false,
 }: {
   film: { title: string; year: number; coverImage: string };
   compact?: boolean;
+  eager?: boolean;
 }) {
   const logo = logos[film.coverImage as keyof typeof logos];
   const backdrop = labels[film.coverImage as keyof typeof labels];
@@ -40,7 +42,9 @@ export function FilmResultSpine({
       role="img"
       aria-label={`${film.title}${film.year ? ` (${film.year})` : ""}`}
       // A missing CSS mask makes the entire spine transparent, including its title.
-      style={maskReady ? { maskImage: `url("${spineAsset("mask")}")` } : undefined}
+      style={
+        maskReady ? { maskImage: `url("${spineAsset("mask")}")` } : undefined
+      }
     >
       <span aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -58,7 +62,7 @@ export function FilmResultSpine({
               src={withBasePath(image)}
               alt=""
               draggable={false}
-              loading={compact ? "eager" : "lazy"}
+              loading={compact || eager ? "eager" : "lazy"}
               onError={() =>
                 setFailedImages((failed) =>
                   failed.includes(image) ? failed : [...failed, image],
@@ -74,7 +78,7 @@ export function FilmResultSpine({
                 src={withBasePath(logo.image)}
                 alt=""
                 draggable={false}
-                loading={compact ? "eager" : "lazy"}
+                loading={compact || eager ? "eager" : "lazy"}
                 onError={() => setFailedLogo(logo.image)}
               />
             ) : (

@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClosedFilmRound } from "@/components/ClosedFilmRound";
+import { FilmArchiveShelf } from "@/components/FilmArchiveShelf";
 import { FilmVoteWall, type FilmVoteMovie } from "@/components/FilmVoteWall";
 import { formatFilmDate } from "@/components/filmClubProgramData";
 import { NextFilmTv, StaticFilmTv } from "@/components/NextFilmTv";
@@ -272,6 +273,7 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
         clubSlug={clubSlug}
         openDirectResult={requestedDirectResult}
         snapshot={roundState.snapshot}
+        archive={<FilmArchiveShelf clubSlug={clubSlug} />}
       />
     );
   }
@@ -286,72 +288,75 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
         />
       </Head>
 
-      <main className={styles.programPage}>
-        <section className={styles.nextSection} id="neste">
-          <div className={styles.sectionLabel}>
-            <span>{statusLabel}</span>
-            {scheduledAt ? <span>{formatFilmDate(scheduledAt)}</span> : null}
-          </div>
-
-          <div className={styles.nextLayout}>
-            <div className={styles.nextCase}>
-              {roundState.status === "scheduled" ||
-              roundState.status === "awaiting" ||
-              roundState.status === "idle" ? (
-                <StaticFilmTv />
-              ) : (
-                <NextFilmTv movie={leader} />
-              )}
+      <main className={`${styles.programPage} ${styles.withArchive}`}>
+        <div className={styles.currentProgramme}>
+          <section className={styles.nextSection} id="neste">
+            <div className={styles.sectionLabel}>
+              <span>{statusLabel}</span>
+              {scheduledAt ? <span>{formatFilmDate(scheduledAt)}</span> : null}
             </div>
-          </div>
-        </section>
 
-        {roundState.status === "open" ? (
-          <FilmVoteWall
-            key={`${boardId}:${roundState.candidateIds?.join(",") ?? "legacy"}`}
-            boardId={boardId}
-            candidateIds={roundState.candidateIds}
-            onLeaderChange={setLeader}
-            onRoundClosed={handleRoundClosed}
-          />
-        ) : roundState.status === "loading" ? (
-          <section
-            className={styles.voteWallSection}
-            aria-busy="true"
-            aria-live="polite"
-          >
-            <p>Henter avstemningen…</p>
+            <div className={styles.nextLayout}>
+              <div className={styles.nextCase}>
+                {roundState.status === "scheduled" ||
+                roundState.status === "awaiting" ||
+                roundState.status === "idle" ? (
+                  <StaticFilmTv />
+                ) : (
+                  <NextFilmTv movie={leader} />
+                )}
+              </div>
+            </div>
           </section>
-        ) : (
-          <section className={styles.voteWallSection} aria-live="polite">
-            {roundState.status === "error" ? (
-              <>
-                <p role="status">{roundState.message}</p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void refreshRound({ force: true, showLoading: true })
-                  }
-                >
-                  Prøv igjen
-                </button>
-              </>
-            ) : roundState.status === "scheduled" ? (
-              <p role="status">
-                Avstemningen åpner {formatFilmDate(roundState.opensAt)}.
-              </p>
-            ) : roundState.status === "awaiting" ? (
-              <p role="status">
-                Resultatet publiseres {formatFilmDate(roundState.resultsAt)}.
-              </p>
-            ) : (
-              <p role="status">Ingen aktiv avstemning akkurat nå.</p>
-            )}
-            <a className={styles.sectionLabel} href={historyHref}>
-              Se historikk
-            </a>
-          </section>
-        )}
+
+          {roundState.status === "open" ? (
+            <FilmVoteWall
+              key={`${boardId}:${roundState.candidateIds?.join(",") ?? "legacy"}`}
+              boardId={boardId}
+              candidateIds={roundState.candidateIds}
+              onLeaderChange={setLeader}
+              onRoundClosed={handleRoundClosed}
+            />
+          ) : roundState.status === "loading" ? (
+            <section
+              className={styles.voteWallSection}
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <p>Henter avstemningen…</p>
+            </section>
+          ) : (
+            <section className={styles.voteWallSection} aria-live="polite">
+              {roundState.status === "error" ? (
+                <>
+                  <p role="status">{roundState.message}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void refreshRound({ force: true, showLoading: true })
+                    }
+                  >
+                    Prøv igjen
+                  </button>
+                </>
+              ) : roundState.status === "scheduled" ? (
+                <p role="status">
+                  Avstemningen åpner {formatFilmDate(roundState.opensAt)}.
+                </p>
+              ) : roundState.status === "awaiting" ? (
+                <p role="status">
+                  Resultatet publiseres {formatFilmDate(roundState.resultsAt)}.
+                </p>
+              ) : (
+                <p role="status">Ingen aktiv avstemning akkurat nå.</p>
+              )}
+              <a className={styles.sectionLabel} href={historyHref}>
+                Se historikk
+              </a>
+            </section>
+          )}
+        </div>
+        <FilmArchiveShelf clubSlug={clubSlug} />
       </main>
     </>
   );

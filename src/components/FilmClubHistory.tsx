@@ -69,7 +69,7 @@ const HistoryCard = ({
           </div>
         </dl>
         <a className={styles.ticketLink} href={ticketHref}>
-          Vinner og billett
+          Se resultatene
         </a>
       </div>
     </li>
