@@ -6,9 +6,11 @@ Arbeidsgren: `fix/live-rounds-trailer`. YouTube-spilleren får en avgrenset, gje
 
 Cover-fallbacken stanser ikke lenger en video som starter sent. Den tar imot sen avspilling og viser videoen igjen. Automatisk oppstart forsøkes maksimalt to ganger. Hvis nettleseren blokkerer autoplay, kan TV-flaten aktiveres med klikk eller Enter/Space uten at en ny iframe mister brukerhandlingen. Meldinger må fortsatt komme fra riktig YouTube-opprinnelse og den aktuelle iframe-en.
 
+TV-utsnittet sentrerer en 16:9-spiller med 72 piksler utenfor øvre og nedre kant. Dette skjuler kontroll-/tittelområder mer konsekvent på mobil og større skjermer, med noe tettere beskjæring av bildet. `controls=0` beholdes. YouTube kan fortsatt vise overlegg midt i bildet; avspillingsstabilitet og fallback håndterer oppstart og stopp.
+
 Eksisterende installasjoner tar også inn admin-/runde-/stemmetavlerettelsene fra oppføringen under. Den lokale klubbkonfigurasjonen, eldre billettsted og eventuelle egne sider må bevares; malens tomme programfil skal ikke erstatte en eksisterende klubb. Ingen databasemigrering eller endring av passord/stemmehemmelighet er nødvendig.
 
-Publiseringskontroll og resultat føres inn etter verifikasjon. Tilbakerulling gjelder kode og bygg, mens eksisterende produksjonsdata beholdes.
+Verifikasjon: 255 tester bestått; etter utsnittsjusteringen bestod de 12 berørte visuelle kontrollene. `pnpm check` består med 0 feil og 43 eksisterende advarsler. Produksjonsbygg med `/filmklubb` består. Uavhengig review fant ingen gjenværende blokkering etter at ventende retry ble kansellert ved autoplay-blokkering og brukerhandling. Publiseringsresultat føres inn etter livekontroll. Tilbakerulling gjelder kode og bygg, mens eksisterende produksjonsdata beholdes.
 
 ## 30. september 2026 – gjenbrukbart filmklubbgrunnlag
 

@@ -122,9 +122,12 @@ void test("zooms trailers to fill the square TV at every width", () => {
     .map((match) => match[1] ?? "")
     .find((rule) => /max-width\s*:\s*none/.test(rule));
   assert.ok(videoRule, "Fant ikke hovedregelen for trailervideoen");
-  assert.match(videoRule, /left\s*:\s*-38\.89%/);
-  assert.match(videoRule, /transform\s*:\s*scale\(1\.14\)/);
-  assert.match(videoRule, /width\s*:\s*177\.78%/);
+  assert.match(videoRule, /inset\s*:\s*auto/);
+  assert.match(videoRule, /left\s*:\s*50%/);
+  assert.match(videoRule, /top\s*:\s*50%/);
+  assert.match(videoRule, /transform\s*:\s*translate\(-50%, -50%\)/);
+  assert.match(videoRule, /height\s*:\s*calc\(100% \+ 144px\)/);
+  assert.match(videoRule, /width\s*:\s*calc\(177\.78% \+ 256px\)/);
 });
 
 void test("opens the static from a bright CRT line before revealing the trailer", () => {
