@@ -193,6 +193,8 @@ export const shouldRecoverYoutubePoster = (
   state: number,
   previousTime: number | null,
   currentTime: number,
+  manualPlaybackRequested: boolean,
 ): boolean =>
+  manualPlaybackRequested &&
   state === 1 &&
   observeYoutubeProgress(previousTime, null, currentTime, 0).advanced;

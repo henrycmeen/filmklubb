@@ -24,11 +24,7 @@ import {
   type TvPhase,
   type YoutubeTvPlaybackSignal,
 } from "@/lib/tvTransition";
-import {
-  getYoutubePlaybackCandidateStart,
-  scheduleYoutubeRetry,
-  shouldRetryYoutubeAutomatically,
-} from "@/lib/youtubeRecovery";
+import { getYoutubePlaybackCandidateStart } from "@/lib/youtubeRecovery";
 import styles from "@/styles/filmClubProgram.module.css";
 
 type NextFilmMovie = Pick<FilmProgramMovie, "id" | "title" | "coverImage"> & {
@@ -147,7 +143,6 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   });
   const [phase, setPhase] = useState<TvPhase>("tuning");
   const [playerGeneration, setPlayerGeneration] = useState(0);
-  const [playerFailureVersion, setPlayerFailureVersion] = useState(0);
   const [usePosterFallback, setUsePosterFallback] = useState(false);
   const playerRef = useRef<YoutubeTrailerControls | null>(null);
   const blockedTrailerTimer = useRef<number | null>(null);
@@ -166,14 +161,8 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   const knownDuration = useRef<number | null>(null);
   const retryableFailureRef = useRef(false);
   const autoplayBlockedRef = useRef(false);
-  const automaticRetriesRef = useRef(0);
-  const cancelAutomaticRetryRef = useRef<(() => void) | null>(null);
+  const manualPlaybackRequestedRef = useRef(false);
   const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
-
-  const clearAutomaticRetry = useCallback(() => {
-    cancelAutomaticRetryRef.current?.();
-    cancelAutomaticRetryRef.current = null;
-  }, []);
 
   const setTvPhase = useCallback((nextPhase: TvPhase) => {
     phaseRef.current = nextPhase;
@@ -284,7 +273,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   }, [displayed.youtubeId, playerGeneration]);
 
   useEffect(() => {
-    automaticRetriesRef.current = 0;
+    manualPlaybackRequestedRef.current = false;
     retryableFailureRef.current = false;
     autoplayBlockedRef.current = false;
     setNeedsPlaybackGesture(false);
@@ -396,9 +385,10 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   );
 
   const revealPosterFallback = useCallback(() => {
-    if (phaseRef.current === "poweringOff" || posterFallbackRef.current) {
-      return;
-    }
+    if (phaseRef.current === "poweringOff") return;
+    manualPlaybackRequestedRef.current = false;
+    setNeedsPlaybackGesture(true);
+    if (posterFallbackRef.current) return;
 
     clearRevealTimer();
     clearPhaseTimer();
@@ -407,13 +397,11 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     posterFallbackRef.current = true;
     setUsePosterFallback(true);
     setTvPhase("tuning");
-    revealPicture(TV_TRANSITION_TIMING.posterSignalHoldMs);
   }, [
     clearBlockedTrailerTimer,
     clearPhaseTimer,
     clearRevealTimer,
     resetPlaybackCandidate,
-    revealPicture,
     setTvPhase,
   ]);
 
@@ -453,47 +441,6 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   ]);
 
   useEffect(() => {
-    if (!usePosterFallback || phase !== "playing" || !displayed.youtubeId) {
-      return;
-    }
-
-    if (
-      !retryableFailureRef.current ||
-      !shouldRetryYoutubeAutomatically(
-        automaticRetriesRef.current,
-        autoplayBlockedRef.current,
-      )
-    ) {
-      setNeedsPlaybackGesture(true);
-      return;
-    }
-    cancelAutomaticRetryRef.current = scheduleYoutubeRetry({
-      isEligible: () =>
-        retryableFailureRef.current &&
-        posterFallbackRef.current &&
-        shouldRetryYoutubeAutomatically(
-          automaticRetriesRef.current,
-          autoplayBlockedRef.current,
-        ),
-      retry: () => {
-        automaticRetriesRef.current += 1;
-        retryTrailerPlayback();
-      },
-      schedule: (callback, delay) => window.setTimeout(callback, delay),
-      cancel: (timer) => window.clearTimeout(timer),
-      delay: TV_TRANSITION_TIMING.posterRetryMs,
-    });
-    return clearAutomaticRetry;
-  }, [
-    clearAutomaticRetry,
-    displayed.youtubeId,
-    phase,
-    playerFailureVersion,
-    retryTrailerPlayback,
-    usePosterFallback,
-  ]);
-
-  useEffect(() => {
     if (phase !== "tuning" || !displayed.youtubeId || usePosterFallback) {
       return;
     }
@@ -525,14 +472,12 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   const handleTrailerBlocked = useCallback(() => {
     autoplayBlockedRef.current = true;
     retryableFailureRef.current = false;
-    clearAutomaticRetry();
     setNeedsPlaybackGesture(true);
     revealPosterFallback();
-  }, [clearAutomaticRetry, revealPosterFallback]);
+  }, [revealPosterFallback]);
 
   const handleTrailerError = useCallback(() => {
     retryableFailureRef.current = true;
-    setPlayerFailureVersion((version) => version + 1);
     revealPosterFallback();
   }, [revealPosterFallback]);
 
@@ -552,12 +497,12 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         sample.state,
         lastPlayerSampleTime.current,
         sample.currentTime,
+        manualPlaybackRequestedRef.current,
       );
       // This history survives poster fallback and candidate resets so a cached
       // PLAYING state cannot turn a frozen frame into another tuning cycle.
       lastPlayerSampleTime.current = sample.currentTime;
       if (canRecoverPoster && posterFallbackRef.current) {
-        clearAutomaticRetry();
         clearRevealTimer();
         posterFallbackRef.current = false;
         autoplayBlockedRef.current = false;
@@ -650,7 +595,6 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         restartTrailer();
     },
     [
-      clearAutomaticRetry,
       clearRevealTimer,
       displayed.youtubeId,
       resetPlaybackCandidate,
@@ -687,7 +631,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         progressAt === null ||
         Date.now() - progressAt > PLAYBACK_WATCHDOG_GRACE_MS
       ) {
-        returnTrailerToTuning();
+        revealPosterFallback();
       }
     }, 250);
 
@@ -696,19 +640,27 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     displayed.youtubeId,
     phase,
     restartTrailer,
-    returnTrailerToTuning,
+    revealPosterFallback,
     usePosterFallback,
   ]);
 
   const resumeTrailerFromGesture = useCallback(() => {
-    if (!displayed.youtubeId || !posterFallbackRef.current) return;
-    // Send directly to the existing player inside the gesture; a remount would
-    // lose Safari's user activation before the new iframe becomes ready.
-    clearAutomaticRetry();
+    if (
+      !displayed.youtubeId ||
+      phaseRef.current === "poweringOff" ||
+      (phaseRef.current === "playing" && !posterFallbackRef.current)
+    )
+      return;
+    manualPlaybackRequestedRef.current = true;
     autoplayBlockedRef.current = false;
-    automaticRetriesRef.current = 0;
+    if (retryableFailureRef.current) {
+      retryableFailureRef.current = false;
+      retryTrailerPlayback();
+      return;
+    }
+    // Preserve the existing iframe and send play directly inside the gesture.
     prepareTrailerPlayback();
-  }, [clearAutomaticRetry, displayed.youtubeId, prepareTrailerPlayback]);
+  }, [displayed.youtubeId, prepareTrailerPlayback, retryTrailerPlayback]);
 
   const pictureClassName = `${styles.nextTvPicture} ${
     phase === "poweringOff"
@@ -728,8 +680,8 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
       className={styles.nextTv}
       data-tv-phase={phase}
       data-poster-fallback={usePosterFallback}
-      role={needsPlaybackGesture ? "button" : undefined}
-      tabIndex={needsPlaybackGesture ? 0 : undefined}
+      role={displayed.youtubeId ? "button" : undefined}
+      tabIndex={displayed.youtubeId ? 0 : undefined}
       aria-label={
         needsPlaybackGesture
           ? `Spill trailer for ${movie.title}`
@@ -738,7 +690,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
       onClick={resumeTrailerFromGesture}
       onKeyDown={(event) => {
         if (
-          needsPlaybackGesture &&
+          displayed.youtubeId &&
           (event.key === "Enter" || event.key === " ")
         ) {
           event.preventDefault();
@@ -761,7 +713,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
               onError={handleTrailerError}
             />
           ) : null}
-          {!displayed.youtubeId || usePosterFallback ? (
+          {!displayed.youtubeId ? (
             <>
               <span
                 className={styles.nextTvPosterBackdrop}
@@ -777,7 +729,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
             </>
           ) : null}
         </div>
-        {phase === "tuning" || phase === "poweringOn" ? (
+        {usePosterFallback || phase === "tuning" || phase === "poweringOn" ? (
           <TvStaticNoise poweringOn={phase === "poweringOn"} />
         ) : null}
         {phase === "poweringOn" ? (

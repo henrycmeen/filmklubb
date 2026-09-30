@@ -188,7 +188,7 @@ void test("a frozen PLAYING frame stays on the poster until playback actually re
   // After the watchdog and fallback deadline, cached PLAYING samples continue.
   // They must not clear the poster and restart the seven-second tuning cycle.
   for (let elapsed = 0; elapsed <= 21_000; elapsed += 250) {
-    if (shouldRecoverYoutubePoster(1, previousTime, 3.25)) {
+    if (shouldRecoverYoutubePoster(1, previousTime, 3.25, true)) {
       posterVisible = false;
       recoveries += 1;
     }
@@ -196,8 +196,17 @@ void test("a frozen PLAYING frame stays on the poster until playback actually re
   }
   assert.equal(posterVisible, true);
   assert.equal(recoveries, 0);
-  assert.equal(shouldRecoverYoutubePoster(1, previousTime, 3.5), true);
-  assert.equal(shouldRecoverYoutubePoster(2, previousTime, 3.5), false);
-  assert.equal(shouldRecoverYoutubePoster(1, null, 3.5), false);
-  assert.equal(shouldRecoverYoutubePoster(1, previousTime, 0), false);
+  assert.equal(shouldRecoverYoutubePoster(1, previousTime, 3.5, true), true);
+  assert.equal(shouldRecoverYoutubePoster(2, previousTime, 3.5, true), false);
+  assert.equal(shouldRecoverYoutubePoster(1, null, 3.5, true), false);
+  assert.equal(shouldRecoverYoutubePoster(1, previousTime, 0, true), false);
+});
+
+void test("failed trailer stays on static until a gesture and advancing playback", () => {
+  assert.equal(shouldRecoverYoutubePoster(2, 3, 3, false), false);
+  // Focus recovery may start the hidden player, but must not replace static
+  // until the person explicitly activates the TV.
+  assert.equal(shouldRecoverYoutubePoster(1, 3, 3.25, false), false);
+  assert.equal(shouldRecoverYoutubePoster(1, 3.25, 3.25, true), false);
+  assert.equal(shouldRecoverYoutubePoster(1, 3.25, 3.5, true), true);
 });

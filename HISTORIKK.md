@@ -76,3 +76,8 @@ Nyeste funksjoner fra før denne økten inkluderer planlagte runder/passordbesky
 - Uavhengig kodereview: ID-feil rettet, eldre kompatibilitet verifisert, ingen gjenværende kodeblokkering i avgrenset review.
 
 Testdata og HTTP-prøveskript ligger separat i `.cache/template-smoke`; de er ikke en kopi av live databasen. Git-sporede filer inneholder ingen SQLite-/admin-/hemmelighetsfil; bare `.env.example` er sporet som miljøfil. Dette er en målrettet kontroll, ikke en full historisk hemmelighetsskanning.
+
+
+## Trailer: skurring og start direkte på TV-en
+
+Når en YouTube-trailer ikke starter, blir blokkert eller slutter å gå fremover, viser TV-en skurring til brukeren klikker på den eller trykker Enter/Space. Ingen synlig knapp legges til. Klikket gjenopptar den eksisterende, dempede spilleren; ved en faktisk innlastingsfeil opprettes spilleren på nytt. Klikk under normal avspilling gjør ingenting, og filmer helt uten trailer beholder omslaget. Skurringen fjernes først etter klikk og bekreftet fremdrift i traileren. Dette overstyrer ikke nettleserens autoplay-policy.
