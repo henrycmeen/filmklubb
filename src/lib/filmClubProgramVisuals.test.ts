@@ -158,11 +158,8 @@ void test("keeps dark VHS covers legible against the black mobile wall", () => {
   );
 });
 
-void test("retries blocked autoplay without rendering a manual trailer button", () => {
-  assert.doesNotMatch(nextFilmTvSource, /Spill trailer|nextTvRetry/);
+void test("keeps trailer recovery on the TV without adding a visible manual button", () => {
+  assert.doesNotMatch(nextFilmTvSource, /<button\b|nextTvRetry/);
+  assert.doesNotMatch(nextFilmTvSource, />\s*Spill trailer/);
   assert.doesNotMatch(stylesheet, /\.nextTvRetry\b/);
-  assert.match(
-    nextFilmTvSource,
-    /setTimeout\(\s*retryTrailerPlayback,\s*TV_TRANSITION_TIMING\.posterRetryMs,?\s*\)/s,
-  );
 });
