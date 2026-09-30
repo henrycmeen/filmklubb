@@ -273,3 +273,17 @@ void test("cuts off short and long trailers before their outro", () => {
   assert.equal(getYoutubeTrailerCutoffSeconds(Number.NaN), null);
   assert.equal(getYoutubeTrailerCutoffSeconds(Number.POSITIVE_INFINITY), null);
 });
+
+void test("official API player starts silent after ready, with its actual host origin", () => {
+  const result = new URL(
+    buildYoutubeTrailerEmbedUrl(
+      "trailer-a",
+      "https://filmklubb.example",
+      false,
+    ),
+  );
+  assert.equal(result.searchParams.get("autoplay"), "0");
+  assert.equal(result.searchParams.get("mute"), "1");
+  assert.equal(result.searchParams.get("origin"), "https://filmklubb.example");
+  assert.equal(result.origin, "https://www.youtube-nocookie.com");
+});

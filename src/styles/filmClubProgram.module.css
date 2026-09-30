@@ -122,8 +122,9 @@
   z-index: 1;
 }
 
+/* Keep the iframe eligible for Safari autoplay; static masks it above. */
 .nextTvPictureTuning {
-  opacity: 0;
+  opacity: 1;
 }
 
 .nextTvPicturePlaying {
@@ -131,7 +132,17 @@
 }
 
 .nextTvPicturePoweringOn {
-  opacity: 0;
+  opacity: 1;
+}
+
+/* The animated static shrinks; mask its surrounding area without hiding video. */
+.nextTvPicturePoweringOn::after {
+  background: #090a09;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
 }
 
 .nextTvPicturePoweringOff {
@@ -711,10 +722,7 @@
     opacity: 1;
   }
 
-  .nextTvPictureTuning,
-  .nextTvPicturePoweringOn,
   .nextTvPicturePoweringOff,
-  .nextTvStatic,
   .nextTvPowerOnFlash,
   .nextTvPowerOffFlash {
     display: none;

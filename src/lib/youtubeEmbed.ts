@@ -1,9 +1,13 @@
 export const YOUTUBE_TRAILER_INITIAL_START_SECONDS = 3;
 export const YOUTUBE_TRAILER_LOOP_START_SECONDS = 0;
 
-export const buildYoutubeTrailerEmbedUrl = (youtubeId: string): string => {
+export const buildYoutubeTrailerEmbedUrl = (
+  youtubeId: string,
+  origin?: string,
+  autoplay = true,
+): string => {
   const params = new URLSearchParams({
-    autoplay: "1",
+    autoplay: autoplay ? "1" : "0",
     mute: "1",
     start: String(YOUTUBE_TRAILER_INITIAL_START_SECONDS),
     controls: "0",
@@ -17,6 +21,8 @@ export const buildYoutubeTrailerEmbedUrl = (youtubeId: string): string => {
     iv_load_policy: "3",
     enablejsapi: "1",
   });
+
+  if (origin) params.set("origin", origin);
 
   return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params.toString()}`;
 };

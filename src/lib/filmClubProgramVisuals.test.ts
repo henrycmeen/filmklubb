@@ -136,6 +136,27 @@ void test("opens the static from a bright CRT line before revealing the trailer"
     /animation\s*:\s*nextTvPowerOn 420ms/,
   );
   assert.doesNotMatch(getRuleBody(".nextTvPicturePoweringOn"), /animation\s*:/);
+  // Safari must see a visible iframe while the separate signal layers mask it.
+  for (const phase of [".nextTvPictureTuning", ".nextTvPicturePoweringOn"]) {
+    assert.match(getRuleBody(phase), /opacity\s*:\s*1/);
+  }
+  for (const mask of [".nextTvStatic", ".nextTvPicturePoweringOn::after"]) {
+    assert.match(getRuleBody(mask), /background\s*:\s*#090a09/);
+    assert.match(getRuleBody(mask), /inset\s*:\s*0/);
+    assert.match(getRuleBody(mask), /z-index\s*:\s*2/);
+  }
+  assert.match(getRuleBody(".nextTvPicture"), /z-index\s*:\s*1/);
+  const reducedMotion = stylesheet.slice(
+    stylesheet.indexOf("@media (prefers-reduced-motion: reduce)"),
+  );
+  for (const rule of reducedMotion.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (/display\s*:\s*none/.test(rule[2] ?? "")) {
+      assert.doesNotMatch(
+        rule[1] ?? "",
+        /\.nextTvPicture(?:Tuning|PoweringOn)\b|\.nextTvStatic\b/,
+      );
+    }
+  }
   assert.match(
     getRuleBody(".nextTvPowerOnFlash"),
     /animation\s*:\s*nextTvPowerFlash 420ms/,

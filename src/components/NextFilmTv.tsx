@@ -2,19 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FilmProgramMovie } from "@/components/filmClubProgramData";
 import { withBasePath } from "@/lib/basePath";
 import {
-  buildYoutubeTrailerEmbedUrl,
-  getYoutubePlaybackProgress,
-  getYoutubeDuration,
   getYoutubeTrailerCutoffSeconds,
-  isYoutubeAutoplayBlockedMessage,
-  isYoutubeBufferingMessage,
-  isYoutubeEndedMessage,
-  isYoutubeErrorMessage,
-  isYoutubePausedMessage,
-  isYoutubePlayingMessage,
-  isYoutubeReadyMessage,
   YOUTUBE_TRAILER_LOOP_START_SECONDS,
 } from "@/lib/youtubeEmbed";
+import {
+  YoutubeTrailerPlayer,
+  type YoutubeTrailerControls,
+} from "@/components/YoutubeTrailerPlayer";
+import {
+  observeYoutubeProgress,
+  shouldRecoverYoutubePoster,
+  type YoutubePlayerSample,
+} from "@/lib/youtubePlayerApi";
 import {
   advanceTvPhase,
   buildTvPlayerKey,
@@ -29,7 +28,6 @@ import {
   getYoutubePlaybackCandidateStart,
   scheduleYoutubeRetry,
   shouldRetryYoutubeAutomatically,
-  startYoutubeHandshake,
 } from "@/lib/youtubeRecovery";
 import styles from "@/styles/filmClubProgram.module.css";
 
@@ -149,8 +147,9 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   });
   const [phase, setPhase] = useState<TvPhase>("tuning");
   const [playerGeneration, setPlayerGeneration] = useState(0);
+  const [playerFailureVersion, setPlayerFailureVersion] = useState(0);
   const [usePosterFallback, setUsePosterFallback] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const playerRef = useRef<YoutubeTrailerControls | null>(null);
   const blockedTrailerTimer = useRef<number | null>(null);
   const phaseRef = useRef<TvPhase>("tuning");
   const revealTimer = useRef<number | null>(null);
@@ -161,11 +160,11 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   const playbackSignalRef = useRef<YoutubeTvPlaybackSignal | null>(null);
   const playbackCandidateStartedAt = useRef<number | null>(null);
   const lastPlaybackTime = useRef<number | null>(null);
+  const lastPlayerSampleTime = useRef<number | null>(null);
   const lastPlaybackProgressAt = useRef<number | null>(null);
   const hasPlaybackAdvanced = useRef(false);
   const knownDuration = useRef<number | null>(null);
-  const captionsDisableRequested = useRef(false);
-  const playerReadyRef = useRef(false);
+  const retryableFailureRef = useRef(false);
   const autoplayBlockedRef = useRef(false);
   const automaticRetriesRef = useRef(0);
   const cancelAutomaticRetryRef = useRef<(() => void) | null>(null);
@@ -281,12 +280,12 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   useEffect(() => {
     restartPending.current = false;
     knownDuration.current = null;
-    captionsDisableRequested.current = false;
-    playerReadyRef.current = false;
+    lastPlayerSampleTime.current = null;
   }, [displayed.youtubeId, playerGeneration]);
 
   useEffect(() => {
     automaticRetriesRef.current = 0;
+    retryableFailureRef.current = false;
     autoplayBlockedRef.current = false;
     setNeedsPlaybackGesture(false);
   }, [displayed.movieId, displayed.youtubeId]);
@@ -427,54 +426,9 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     }
   }, [displayed.youtubeId, phase, revealPicture]);
 
-  const postYoutubeCommand = useCallback(
-    (func: string, args: unknown[] = []) => {
-      iframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func, args }),
-        "https://www.youtube-nocookie.com",
-      );
-    },
-    [],
-  );
-
   const prepareTrailerPlayback = useCallback(() => {
-    if (!displayed.youtubeId) {
-      return;
-    }
-
-    const playerWindow = iframeRef.current?.contentWindow;
-    if (playerWindow) {
-      playerWindow.postMessage(
-        JSON.stringify({
-          channel: "filmklubb-tv",
-          event: "listening",
-          id: "filmklubb-tv",
-        }),
-        "https://www.youtube-nocookie.com",
-      );
-      for (const eventName of [
-        "onStateChange",
-        "onReady",
-        "onAutoplayBlocked",
-        "onError",
-        "onApiChange",
-      ]) {
-        postYoutubeCommand("addEventListener", [eventName]);
-      }
-      postYoutubeCommand("mute");
-      postYoutubeCommand("playVideo");
-    }
-  }, [displayed.youtubeId, postYoutubeCommand]);
-
-  useEffect(() => {
-    if (!displayed.youtubeId) return;
-    return startYoutubeHandshake({
-      send: prepareTrailerPlayback,
-      isReady: () => playerReadyRef.current || autoplayBlockedRef.current,
-      schedule: (callback, delay) => window.setTimeout(callback, delay),
-      cancel: (timer) => window.clearTimeout(timer),
-    });
-  }, [displayed.youtubeId, playerGeneration, prepareTrailerPlayback]);
+    playerRef.current?.playMuted();
+  }, []);
 
   const retryTrailerPlayback = useCallback(() => {
     if (!displayed.youtubeId) {
@@ -504,6 +458,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     }
 
     if (
+      !retryableFailureRef.current ||
       !shouldRetryYoutubeAutomatically(
         automaticRetriesRef.current,
         autoplayBlockedRef.current,
@@ -514,6 +469,8 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     }
     cancelAutomaticRetryRef.current = scheduleYoutubeRetry({
       isEligible: () =>
+        retryableFailureRef.current &&
+        posterFallbackRef.current &&
         shouldRetryYoutubeAutomatically(
           automaticRetriesRef.current,
           autoplayBlockedRef.current,
@@ -531,6 +488,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     clearAutomaticRetry,
     displayed.youtubeId,
     phase,
+    playerFailureVersion,
     retryTrailerPlayback,
     usePosterFallback,
   ]);
@@ -560,88 +518,50 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     restartPending.current = true;
     // Hide the old picture before seeking, including delayed end-state frames.
     returnTrailerToTuning();
-    postYoutubeCommand("seekTo", [YOUTUBE_TRAILER_LOOP_START_SECONDS, true]);
-    postYoutubeCommand("playVideo");
-  }, [postYoutubeCommand, returnTrailerToTuning]);
+    playerRef.current?.seekTo(YOUTUBE_TRAILER_LOOP_START_SECONDS);
+    playerRef.current?.playMuted();
+  }, [returnTrailerToTuning]);
 
-  useEffect(() => {
-    const handleYoutubeMessage = (event: MessageEvent<unknown>) => {
-      if (
-        event.origin !== "https://www.youtube-nocookie.com" ||
-        event.source !== iframeRef.current?.contentWindow
-      ) {
-        return;
-      }
+  const handleTrailerBlocked = useCallback(() => {
+    autoplayBlockedRef.current = true;
+    retryableFailureRef.current = false;
+    clearAutomaticRetry();
+    setNeedsPlaybackGesture(true);
+    revealPosterFallback();
+  }, [clearAutomaticRetry, revealPosterFallback]);
 
-      let payload = event.data;
-      if (typeof payload === "string") {
-        try {
-          payload = JSON.parse(payload) as unknown;
-        } catch {
-          return;
-        }
-      }
+  const handleTrailerError = useCallback(() => {
+    retryableFailureRef.current = true;
+    setPlayerFailureVersion((version) => version + 1);
+    revealPosterFallback();
+  }, [revealPosterFallback]);
 
-      const duration = getYoutubeDuration(payload);
-      if (duration !== null) knownDuration.current = duration;
+  const handleYoutubeSample = useCallback(
+    (sample: YoutubePlayerSample) => {
+      if (sample.duration > 0) knownDuration.current = sample.duration;
+      const playbackSignal =
+        sample.state === 1
+          ? "playing"
+          : sample.state === 2
+            ? "paused"
+            : sample.state === 3
+              ? "buffering"
+              : null;
 
-      // cc_load_policy=0 still permits the viewer's saved caption preference.
-      // Module unloading is best effort: YouTube does not guarantee an off switch.
-      if (
-        payload &&
-        typeof payload === "object" &&
-        (payload as { event?: unknown }).event === "onApiChange" &&
-        !captionsDisableRequested.current
-      ) {
-        captionsDisableRequested.current = true;
-        postYoutubeCommand("setOption", ["captions", "track", {}]);
-        postYoutubeCommand("unloadModule", ["captions"]);
-      }
-
-      const isPlayerDelivery =
-        !!payload &&
-        typeof payload === "object" &&
-        ["initialDelivery", "infoDelivery"].includes(
-          String((payload as { event?: unknown }).event),
-        );
-      if (
-        isYoutubeReadyMessage(payload) ||
-        (isPlayerDelivery && !playerReadyRef.current)
-      ) {
-        playerReadyRef.current = true;
-        postYoutubeCommand("setOption", ["captions", "track", {}]);
-        postYoutubeCommand("unloadModule", ["captions"]);
-        postYoutubeCommand("mute");
-        postYoutubeCommand("playVideo");
-      }
-
-      if (
-        isYoutubeAutoplayBlockedMessage(payload) ||
-        isYoutubeErrorMessage(payload)
-      ) {
-        if (isYoutubeAutoplayBlockedMessage(payload)) {
-          autoplayBlockedRef.current = true;
-          clearAutomaticRetry();
-          setNeedsPlaybackGesture(true);
-        }
-        revealPosterFallback();
-        return;
-      }
-
-      const playbackSignal = isYoutubePlayingMessage(payload)
-        ? "playing"
-        : isYoutubePausedMessage(payload)
-          ? "paused"
-          : isYoutubeBufferingMessage(payload)
-            ? "buffering"
-            : null;
-
-      // A slow player can start after the fallback deadline. Preserve that
-      // iframe and accept its signal instead of pausing it behind the cover.
-      if (playbackSignal === "playing" && posterFallbackRef.current) {
+      const canRecoverPoster = shouldRecoverYoutubePoster(
+        sample.state,
+        lastPlayerSampleTime.current,
+        sample.currentTime,
+      );
+      // This history survives poster fallback and candidate resets so a cached
+      // PLAYING state cannot turn a frozen frame into another tuning cycle.
+      lastPlayerSampleTime.current = sample.currentTime;
+      if (canRecoverPoster && posterFallbackRef.current) {
+        clearAutomaticRetry();
         clearRevealTimer();
         posterFallbackRef.current = false;
         autoplayBlockedRef.current = false;
+        retryableFailureRef.current = false;
         setNeedsPlaybackGesture(false);
         setUsePosterFallback(false);
         resetPlaybackCandidate();
@@ -654,7 +574,6 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
           posterFallbackRef.current,
           playbackSignal,
         );
-
         if (action === "startStabilityCheck") {
           const candidateStart = getYoutubePlaybackCandidateStart(
             playbackSignalRef.current,
@@ -672,11 +591,8 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
           clearRevealTimer();
           resetPlaybackCandidate();
         } else if (action === "showPosterFallback") {
-          if (restartPending.current) {
-            returnTrailerToTuning();
-          } else {
-            revealPosterFallback();
-          }
+          if (restartPending.current) returnTrailerToTuning();
+          else revealPosterFallback();
           return;
         } else if (
           playbackSignal === "playing" &&
@@ -691,23 +607,23 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         }
       }
 
-      const progress = getYoutubePlaybackProgress(
-        payload,
-        knownDuration.current,
-      );
-      if (progress && playbackSignalRef.current === "playing") {
+      if (
+        playbackSignalRef.current === "playing" &&
+        !posterFallbackRef.current
+      ) {
         const now = Date.now();
         const previousTime = lastPlaybackTime.current;
-        lastPlaybackTime.current = progress.currentTime;
-        lastPlaybackProgressAt.current = now;
-
-        if (
-          previousTime !== null &&
-          progress.currentTime > previousTime + 0.01
-        ) {
+        lastPlaybackTime.current = sample.currentTime;
+        const observation = observeYoutubeProgress(
+          previousTime,
+          lastPlaybackProgressAt.current,
+          sample.currentTime,
+          now,
+        );
+        lastPlaybackProgressAt.current = observation.lastAdvancedAt;
+        if (observation.advanced) {
           hasPlaybackAdvanced.current = true;
-
-          if (phaseRef.current === "tuning" && !posterFallbackRef.current) {
+          if (phaseRef.current === "tuning") {
             const fullDelay = getTvRevealDelay(
               displayed.youtubeId,
               "youtubePlaying",
@@ -723,36 +639,28 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         }
       }
 
-      if (progress && progress.currentTime < progress.duration * 0.1) {
+      const duration = knownDuration.current ?? 0;
+      if (duration > 0 && sample.currentTime < duration * 0.1)
         restartPending.current = false;
-      }
-
-      const cutoff = getYoutubeTrailerCutoffSeconds(knownDuration.current ?? 0);
+      const cutoff = getYoutubeTrailerCutoffSeconds(duration);
       if (
-        (progress !== null &&
-          cutoff !== null &&
-          progress.currentTime >= cutoff) ||
-        isYoutubeEndedMessage(payload)
-      ) {
+        (cutoff !== null && sample.currentTime >= cutoff) ||
+        sample.state === 0
+      )
         restartTrailer();
-      }
-    };
-
-    window.addEventListener("message", handleYoutubeMessage);
-    return () => window.removeEventListener("message", handleYoutubeMessage);
-  }, [
-    clearAutomaticRetry,
-    clearPhaseTimer,
-    clearRevealTimer,
-    displayed.youtubeId,
-    postYoutubeCommand,
-    restartTrailer,
-    resetPlaybackCandidate,
-    revealPicture,
-    revealPosterFallback,
-    returnTrailerToTuning,
-    setTvPhase,
-  ]);
+    },
+    [
+      clearAutomaticRetry,
+      clearRevealTimer,
+      displayed.youtubeId,
+      resetPlaybackCandidate,
+      restartTrailer,
+      revealPicture,
+      revealPosterFallback,
+      returnTrailerToTuning,
+      setTvPhase,
+    ],
+  );
 
   useEffect(() => {
     if (phase !== "playing" || !displayed.youtubeId || usePosterFallback) {
@@ -818,6 +726,8 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   return (
     <div
       className={styles.nextTv}
+      data-tv-phase={phase}
+      data-poster-fallback={usePosterFallback}
       role={needsPlaybackGesture ? "button" : undefined}
       tabIndex={needsPlaybackGesture ? 0 : undefined}
       aria-label={
@@ -839,18 +749,16 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
       <div className={screenClassName}>
         <div className={pictureClassName}>
           {displayed.youtubeId ? (
-            <iframe
+            <YoutubeTrailerPlayer
               key={buildTvPlayerKey(displayed.youtubeId, playerGeneration)}
-              ref={iframeRef}
+              ref={playerRef}
               className={styles.nextTvVideo}
-              src={buildYoutubeTrailerEmbedUrl(displayed.youtubeId)}
-              title={`Trailer for ${displayed.title}`}
-              aria-hidden={usePosterFallback || undefined}
-              allow="autoplay; encrypted-media"
-              referrerPolicy="strict-origin-when-cross-origin"
-              loading="eager"
-              tabIndex={-1}
-              onLoad={prepareTrailerPlayback}
+              youtubeId={displayed.youtubeId}
+              title={displayed.title}
+              hidden={usePosterFallback}
+              onSample={handleYoutubeSample}
+              onBlocked={handleTrailerBlocked}
+              onError={handleTrailerError}
             />
           ) : null}
           {!displayed.youtubeId || usePosterFallback ? (
