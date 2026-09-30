@@ -2,12 +2,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { applyRateLimit } from "@/lib/rateLimit";
 import {
-  getFilmRoundBoardId,
-  getCurrentFilmRound,
-} from "@/lib/filmRoundService";
-import { resolveCanonicalClubId } from "@/lib/filmClubProgramme";
-import { getFilmVoteStore } from "@/lib/filmVotes";
-import type { FilmRoundSnapshot } from "@/lib/filmRound";
+  getPublicFilmRound,
+  type PublicFilmRound,
+} from "@/lib/filmScheduleService";
 
 const screeningIdSchema = z
   .string()
@@ -29,17 +26,6 @@ const querySchema = z
   })
   .strict();
 
-interface OpenRoundResponse {
-  status: "open";
-  boardId: string;
-}
-
-interface ClosedRoundResponse {
-  status: "closed";
-  boardId: string;
-  snapshot: FilmRoundSnapshot;
-}
-
 interface RoundErrorResponse {
   error: {
     code:
@@ -51,10 +37,7 @@ interface RoundErrorResponse {
   };
 }
 
-type RoundResponse =
-  | OpenRoundResponse
-  | ClosedRoundResponse
-  | RoundErrorResponse;
+type RoundResponse = PublicFilmRound | RoundErrorResponse;
 
 export default function handler(
   req: NextApiRequest,
@@ -93,20 +76,11 @@ export default function handler(
   }
 
   try {
-    const clubId = resolveCanonicalClubId(parsedQuery.data.clubSlug);
-    const current = getCurrentFilmRound(clubId);
-    const screeningId = parsedQuery.data.screeningId ?? current.screeningId;
-    const boardId = getFilmRoundBoardId(clubId, screeningId);
-    const snapshot = getFilmVoteStore().getLockedRound(boardId);
-
-    if (snapshot) {
-      return res.status(200).json({ status: "closed", boardId, snapshot });
-    }
-
-    if (
-      parsedQuery.data.screeningId &&
-      parsedQuery.data.screeningId !== current.screeningId
-    ) {
+    const round = getPublicFilmRound(
+      parsedQuery.data.clubSlug,
+      parsedQuery.data.screeningId,
+    );
+    if (!round) {
       return res.status(404).json({
         error: {
           code: "ROUND_NOT_FOUND",
@@ -115,7 +89,7 @@ export default function handler(
       });
     }
 
-    return res.status(200).json({ status: "open", boardId });
+    return res.status(200).json(round);
   } catch {
     return res.status(503).json({
       error: {

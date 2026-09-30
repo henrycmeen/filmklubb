@@ -16,9 +16,9 @@ void test("parses the explicit close gate", () => {
   assert.deepEqual(
     parseLockRoundArgs([
       "--club",
-      "NA",
+      "DEMO",
       "--screening",
-      "2026-09-22",
+      "screening",
       "--expected-revision",
       "12",
       "--database",
@@ -27,12 +27,12 @@ void test("parses the explicit close gate", () => {
     ]),
     {
       clubProvided: true,
-      clubSlug: "na",
+      clubSlug: "demo",
       commit: true,
       databasePath: "/tmp/filmklubb.sqlite",
       expectedRevision: 12,
       help: false,
-      screeningId: "2026-09-22",
+      screeningId: "screening",
       screeningProvided: true,
     },
   );

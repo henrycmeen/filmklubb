@@ -11,6 +11,21 @@
   scroll-behavior: smooth;
 }
 
+.withArchive {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+/* Archive begins below the opening viewport, even with a small film selection.
+   Natural height still wins when the current programme needs more space. */
+.currentProgramme {
+  display: flow-root;
+  flex-shrink: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 .programPage a {
   color: inherit;
   text-decoration-color: transparent;
@@ -200,6 +215,11 @@
   top: -48%;
   width: 108%;
   z-index: 3;
+}
+
+/* Keep the closed-round signal visible, but motionless with reduced motion. */
+.nextTvNoSignal .nextTvStatic {
+  display: block;
 }
 
 .nextTvStaticGrain {
@@ -456,14 +476,14 @@
 
 /* Small selections form a centered shelf, including a short wrapped row. */
 @media (min-width: 46.001rem) {
-  .voteGrid:not(:has(> li:nth-child(9))) {
+  .voteGrid:not(:has(> li:nth-child(13))) {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: clamp(0.6rem, 1vw, 1rem);
   }
 
-  .voteGrid:not(:has(> li:nth-child(9))) > li {
+  .voteGrid:not(:has(> li:nth-child(13))) > li {
     flex: 0 0 clamp(6rem, 13vw, 9rem);
   }
 }

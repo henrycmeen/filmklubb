@@ -20,7 +20,10 @@ void test("starts with the useful voting stats instead of a decorative results h
 
 void test("lets the ordered list explain the ranking without a visible heading", () => {
   assert.doesNotMatch(resultsSource, />Alle filmer</);
-  assert.doesNotMatch(resultsSource, /<h2 id="ranking-heading">Rangering<\/h2>/);
+  assert.doesNotMatch(
+    resultsSource,
+    /<h2 id="ranking-heading">Rangering<\/h2>/,
+  );
   assert.match(resultsSource, /aria-label="Full rangering av filmer"/);
 });
 
@@ -41,9 +44,10 @@ void test("uses the restrained red cyan and cream results palette", () => {
   assert.match(stylesheet, /--results-accent\s*:\s*var\(--results-red\)/);
 });
 
-void test("shows the same TMDB score used to break vote ties", () => {
+void test("shows the stored TMDB score for every ranked film", () => {
   assert.match(
     resultsSource,
-    /TMDB\s*\{formatTmdbScore\(entry\.tmdbVoteAverage\)\}/,
+    /<FilmTmdbScore score=\{entry\.tmdbVoteAverage\}/,
   );
+  assert.doesNotMatch(resultsSource, /tiedVoteCounts|tied=/);
 });

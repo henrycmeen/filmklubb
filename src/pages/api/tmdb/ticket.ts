@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import catalogue from "@/data/filmVoteCatalogue.json";
 import artwork from "@/data/ticketDemoArt.json";
 import { applyRateLimit } from "@/lib/rateLimit";
+import { combinedFilmCatalogue } from "@/lib/filmCatalogue";
 import { getTmdbMovieTicketDetails, hasTmdbApiKey } from "@/lib/tmdb";
 import {
   selectTicketMetadata,
@@ -26,7 +26,9 @@ type ErrorResponse = { message: string };
 const getMovieOptions = (
   movieId: number,
 ): { coverImage?: string; fallback?: string } => {
-  const film = catalogue.find((candidate) => candidate.id === movieId);
+  const film = combinedFilmCatalogue.find(
+    (candidate) => candidate.id === movieId,
+  );
   const existingArtwork = artwork[String(movieId) as keyof typeof artwork];
 
   return {

@@ -51,7 +51,7 @@ const filmClubResultsSchema = z
         name: z.string().trim().min(1),
       })
       .strict(),
-    activeScreening: activeScreeningSchema,
+    activeScreening: activeScreeningSchema.nullable(),
     ranking: z.array(rankingFilmSchema),
     stats: statsSchema,
     history: z.array(historyEntrySchema),

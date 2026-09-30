@@ -1,4 +1,10 @@
 import { FilmResultSpine } from "@/components/FilmResultSpine";
+import { FilmTmdbScore } from "@/components/FilmTmdbScore";
+import { FilmRoundStats } from "@/components/FilmRoundStats";
+import { FilmRoundRanking } from "@/components/FilmRoundRanking";
+import { ArchivedFilmResults } from "@/components/ArchivedFilmResults";
+import type { FilmResultVariant } from "@/lib/filmResultVariant";
+import type { FilmRoundStats as RoundStats } from "@/lib/filmRoundClient";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { FilmTicket, type TicketData } from "@/components/FilmTicket";
@@ -7,17 +13,34 @@ import { makeFilmTicket, type DemoFinalist } from "@/lib/filmTicket";
 import { GeistSans } from "geist/font/sans";
 import styles from "@/styles/ticketFinale.module.css";
 
-export function TicketFinale({
-  finalists,
-  onClose,
-  demo = true,
-  frozenTicket,
-}: {
+type TicketFinaleProps = {
   finalists: DemoFinalist[];
   onClose: () => void;
   demo?: boolean;
   frozenTicket?: TicketData;
-}) {
+  stats?: RoundStats;
+  variant?: FilmResultVariant;
+};
+
+export function TicketFinale(props: TicketFinaleProps) {
+  if (props.variant === "archive") {
+    return (
+      <ArchivedFilmResults
+        ranking={props.finalists}
+        stats={props.stats}
+      />
+    );
+  }
+  return <AnnouncementFinale {...props} />;
+}
+
+function AnnouncementFinale({
+  finalists,
+  onClose,
+  demo = true,
+  frozenTicket,
+  stats,
+}: TicketFinaleProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [currentIndex, setCurrentIndex] = useState(finalists.length - 1);
   const [printing, setPrinting] = useState(false);
@@ -123,6 +146,7 @@ export function TicketFinale({
                           <span className={styles.votes}>
                             <strong>{entry.votes}</strong>
                             {entry.votes === 1 ? "stemme" : "stemmer"}
+                            <FilmTmdbScore score={entry.tmdbVoteAverage} />
                           </span>
                         </div>
                       </li>
@@ -136,6 +160,7 @@ export function TicketFinale({
               <p>
                 {winner.votes} {winner.votes === 1 ? "stemme" : "stemmer"} ·{" "}
                 {winner.film.year}
+                <FilmTmdbScore score={winner.tmdbVoteAverage} />
               </p>
             </div>
           </div>
@@ -158,29 +183,11 @@ export function TicketFinale({
             className={styles.allResults}
             aria-label="Resultater for alle filmene"
           >
+            {stats && <FilmRoundStats stats={stats} />}
             <header className={styles.resultsHeader}>
               <h2>Hele avstemningen</h2>
             </header>
-            <ol className={styles.ranking}>
-              {finalists.map((entry, index) => (
-                <li
-                  key={entry.film.id}
-                  data-visible="true"
-                  data-winner={index === 0}
-                >
-                  <span className={styles.place}>
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className={styles.filmTitle}>
-                    <FilmResultSpine film={entry.film} />
-                  </span>
-                  <span className={styles.votes}>
-                    <strong>{entry.votes}</strong>{" "}
-                    {entry.votes === 1 ? "stemme" : "stemmer"}
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <FilmRoundRanking ranking={finalists} />
           </section>
         )}
       </div>

@@ -1,0 +1,210 @@
+.historyPage {
+  min-height: 100vh;
+  background: #050505;
+  color: #f3f2ec;
+  font-family: inherit;
+}
+.historyShell {
+  width: min(100%, 70rem);
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 3rem) 4rem;
+}
+.historyHeader {
+  max-width: 46rem;
+  padding: 0.5rem 0 2.5rem;
+}
+.backLink,
+.ticketLink {
+  color: #aaa9a2;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.2rem;
+}
+.backLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  font-size: 0.68rem;
+}
+.backLink:hover,
+.backLink:focus-visible,
+.ticketLink:hover,
+.ticketLink:focus-visible {
+  color: #eeeade;
+  text-decoration-color: currentColor;
+}
+.eyebrow {
+  margin: 0 0 0.8rem;
+  color: #a9ab9e;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.historyHeader h1 {
+  margin: 0;
+  color: #eeeade;
+  font-size: clamp(2.1rem, 7vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.07em;
+  line-height: 0.98;
+}
+.intro {
+  max-width: 30rem;
+  margin: 1rem 0 0;
+  color: #aaa9a2;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.historyList {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #272a24;
+}
+.historyItem {
+  display: grid;
+  grid-template-columns: minmax(6rem, 9rem) minmax(0, 1fr);
+  gap: clamp(1rem, 4vw, 2.5rem);
+  align-items: center;
+  min-width: 0;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid #272a24;
+}
+.cover,
+.coverFallback {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: #11120f;
+  filter: saturate(0.8) contrast(1.05);
+}
+.coverFallback {
+  border: 1px solid #272a24;
+}
+.historyCopy {
+  min-width: 0;
+  padding: 0.25rem 0;
+}
+.historyCopy h2 {
+  max-width: 36rem;
+  margin: 0;
+  color: #eeeade;
+  font-size: clamp(1.3rem, 3vw, 2.2rem);
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+.metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 1.25rem 0 1.5rem;
+}
+.metadata > div {
+  min-width: 9rem;
+}
+.metadata dt {
+  margin-bottom: 0.3rem;
+  color: #777b70;
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.metadata dd {
+  margin: 0;
+  color: #c7c8bd;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.ticketLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: #eeeade;
+  font-size: 0.68rem;
+}
+.emptyState,
+.errorState {
+  max-width: 36rem;
+  padding: 2rem 0;
+}
+.emptyState h1,
+.errorState h1 {
+  margin: 0;
+  color: #eeeade;
+  font-size: clamp(1.6rem, 4vw, 2.5rem);
+  font-weight: 550;
+  letter-spacing: -0.05em;
+}
+.emptyState p:last-child,
+.errorState p:not(.eyebrow) {
+  margin: 0.85rem 0 0;
+  color: #aaa9a2;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.errorState button {
+  min-height: 2.75rem;
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #727965;
+  color: #eeeade;
+}
+.historyPage a:focus-visible,
+.historyPage button:focus-visible {
+  outline: 2px solid #eeeade;
+  outline-offset: 4px;
+}
+.loadingLine,
+.loadingItem {
+  background: #141511;
+  animation: historyPulse 1.4s ease-in-out infinite alternate;
+}
+.loadingLine {
+  width: min(16rem, 55%);
+  height: 3.5rem;
+  margin: 5rem 0 3rem;
+}
+.loadingList {
+  display: grid;
+  gap: 1rem;
+}
+.loadingItem {
+  height: 12rem;
+}
+@keyframes historyPulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 0.8;
+  }
+}
+@media (max-width: 36rem) {
+  .historyShell {
+    padding-top: 0.75rem;
+  }
+  .historyHeader {
+    padding-bottom: 1.75rem;
+  }
+  .historyItem {
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .metadata {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1rem 0 1.25rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loadingLine,
+  .loadingItem {
+    animation: none;
+  }
+}

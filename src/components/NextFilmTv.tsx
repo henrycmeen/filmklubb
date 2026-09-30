@@ -64,12 +64,26 @@ const TvStaticNoise = ({ poweringOn = false }: { poweringOn?: boolean }) => (
     {/* eslint-disable-next-line @next/next/no-img-element */}
     <img
       className={styles.nextTvStaticGrain}
-      src={withBasePath("/VHS/program/analog-no-signal-frame.avif")}
+      src={withBasePath("/VHS/program/analog-no-signal-frame.webp")}
       alt=""
       draggable={false}
     />
     <span className={styles.nextTvSyncTear} />
   </span>
+);
+
+export const StaticFilmTv = () => (
+  <div
+    className={`${styles.nextTv} ${styles.nextTvNoSignal}`}
+    role="img"
+    aria-label="TV med skurring"
+  >
+    <div className={styles.nextTvScreen}>
+      <TvStaticNoise />
+      <span className={styles.nextTvShield} aria-hidden="true" />
+      <span className={styles.nextTvGlow} aria-hidden="true" />
+    </div>
+  </div>
 );
 
 const EmptyNextFilmTv = () => {

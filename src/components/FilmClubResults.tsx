@@ -12,6 +12,7 @@ import {
 import { resolveClubSlugParam } from "@/lib/clubSlug";
 import { withBasePath } from "@/lib/basePath";
 import styles from "@/styles/filmClubResults.module.css";
+import { FilmTmdbScore } from "@/components/FilmTmdbScore";
 
 interface FilmClubResultsProps {
   clubSlug: string;
@@ -23,14 +24,6 @@ const POLL_INTERVAL_MS = 1_500;
 
 const formatCount = (count: number, singular: string, plural: string): string =>
   `${count} ${count === 1 ? singular : plural}`;
-
-const tmdbScoreFormatter = new Intl.NumberFormat("nb-NO", {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-});
-
-const formatTmdbScore = (score: number): string =>
-  tmdbScoreFormatter.format(score);
 
 const formatDateTime = (value: string): string => {
   const date = new Date(value);
@@ -118,9 +111,7 @@ const RankingRow = ({
       <span className={styles.rankingVotes}>
         {formatCount(entry.votes, "stemme", "stemmer")}
       </span>
-      <span className={styles.rankingScore}>
-        TMDB {formatTmdbScore(entry.tmdbVoteAverage)}
-      </span>
+      <FilmTmdbScore score={entry.tmdbVoteAverage} />
     </div>
   </li>
 );

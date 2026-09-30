@@ -13,7 +13,7 @@ process.env.CLUB_DB_PATH = path.join(testDirectory, "rounds.sqlite");
 
 const [
   { getFilmVoteStore },
-  { buildFilmRoundLockMetadata },
+  { buildScheduledFilmRoundMetadata },
   { default: handler },
 ] = await Promise.all([
   import("./filmVotes"),
@@ -68,14 +68,47 @@ after(async () => {
   await fs.rm(testDirectory, { force: true, recursive: true });
 });
 
-void test("reports the configured current round as open", async () => {
+void test("a fresh template has no active election", async () => {
   const response = await invoke();
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["cache-control"], "private, no-store");
+  assert.deepEqual(response.body, { status: "idle" });
+});
 
+void test("reports an explicitly published round as open", async () => {
+  const now = Date.now();
+  const scheduledAt = new Date(now + 3 * 3600000).toISOString();
+  getFilmVoteStore().saveScheduledRound(
+    {
+      boardId: "default-screening",
+      clubId: "default",
+      screeningId: "screening",
+      voteStartsAt: new Date(now - 3600000).toISOString(),
+      voteEndsAt: new Date(now + 3600000).toISOString(),
+      resultsAt: new Date(now + 2 * 3600000).toISOString(),
+      scheduledAt,
+      displayUntil: new Date(now + 4 * 3600000).toISOString(),
+      venue: "Test fixture",
+      published: true,
+      metadata: buildScheduledFilmRoundMetadata(
+        "default",
+        "screening",
+        scheduledAt,
+        "Test fixture",
+        filmVoteCatalogue.map((film) => film.id),
+      ),
+    },
+    null,
+  );
+  const response = await invoke();
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers["cache-control"], "private, no-store");
   assert.deepEqual(response.body, {
     status: "open",
-    boardId: "default-2026-09-22",
+    boardId: "default-screening",
+    scheduledAt,
+    venue: "Test fixture",
+    candidateIds: filmVoteCatalogue.map((film) => film.id),
   });
 });
 
@@ -118,13 +151,25 @@ void test("rejects unsupported methods and unknown historic rounds", async () =>
 });
 
 void test("returns the frozen snapshot after the round is locked", async () => {
-  const boardId = "default-2026-09-22";
+  const boardId = "default-closed";
   const winningFilm = filmVoteCatalogue[0]!;
   const store = getFilmVoteStore();
   store.setVote(boardId, winningFilm.id, "round-api-voter", true);
-  store.lockRound(boardId, buildFilmRoundLockMetadata("default"), 1);
+  store.lockRound(
+    boardId,
+    buildScheduledFilmRoundMetadata(
+      "default",
+      "closed",
+      "2030-01-01T16:00:00+01:00",
+      "Test fixture",
+      filmVoteCatalogue.map((film) => film.id),
+    ),
+    1,
+  );
 
-  const response = await invoke();
+  const response = await invoke({
+    query: { clubSlug: "default", screeningId: "closed" },
+  });
 
   assert.equal(response.statusCode, 200);
   const body = response.body as {

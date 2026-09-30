@@ -191,6 +191,11 @@ const run = async (args: LockRoundCliArgs): Promise<unknown> => {
   }
 
   const currentRound = filmRoundService.getCurrentFilmRound(clubId);
+  if (!currentRound) {
+    throw new Error(
+      "No legacy screening is configured. Manage scheduled rounds through admin.",
+    );
+  }
   const screeningId = args.screeningId ?? currentRound.screeningId;
   if (screeningId !== currentRound.screeningId) {
     throw new Error("Only the configured current screening can be locked.");

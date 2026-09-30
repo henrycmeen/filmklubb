@@ -1,219 +1,289 @@
-.page {
-  min-height: 100vh;
-  background: #050505;
-  color: #eeeade;
-  padding: 0 1.25rem 4rem;
-}
-.kicker {
-  margin: 0;
-  color: #a9ab9e;
-  font-size: 0.58rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-.intro {
-  align-items: center;
+.resultControl {
+  position: relative;
+  z-index: 5;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: 100svh;
-  overflow: hidden;
-  text-align: center;
+  align-items: center;
+  margin: -0.5rem auto 0.5rem;
+  width: max-content;
+  max-width: 100%;
 }
-.intro h1,
-.header h1 {
-  font-size: clamp(2rem, 6vw, 4.5rem);
-  font-weight: 600;
-  letter-spacing: -0.06em;
-  line-height: 1;
-  margin: 1rem 0 0;
+.announce {
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
 }
-.introMeta,
-.headerMeta,
-.winnerMeta,
-.noWinner p {
-  color: #a4a897;
-  font-size: 0.72rem;
-  line-height: 1.5;
+.announce:focus-visible {
+  outline: 2px solid #eeeade;
+  outline-offset: 4px;
+  border-radius: 0.25rem;
 }
-.introMeta {
-  margin: 1rem 0 0;
+.powerSwitch {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  color: #f1dfb0;
 }
-.introCases {
-  align-items: end;
-  display: flex;
-  gap: clamp(0.6rem, 2.5vw, 1.5rem);
-  justify-content: center;
-  margin-top: clamp(2rem, 8vh, 5rem);
-  max-width: 48rem;
+.powerSwitch svg {
+  width: 24px;
+  height: 24px;
+}
+.powerSwitch::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 1px solid #e7daa277;
+  border-radius: 50%;
+  box-shadow:
+    0 0 18px #e7daa233,
+    inset 0 0 12px #e7daa222;
+  pointer-events: none;
+  animation: arrive 1800ms ease-out both;
+}
+@keyframes arrive {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  35% {
+    opacity: 1;
+    box-shadow:
+      0 0 30px #e7daa277,
+      inset 0 0 18px #e7daa244;
+  }
+}
+.directDialog {
+  position: fixed;
+  inset: 0;
   width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  overflow: auto;
+  background: #050505;
+  color: #eeeade;
+  color-scheme: dark;
 }
-.introCase {
-  animation: caseRise 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  cursor: default;
-  flex: 0 1 10rem;
-  max-width: 11rem;
-  opacity: 0;
+.directDialog::backdrop {
+  background: #050505;
 }
-.introCase:nth-child(2) {
-  margin-bottom: 1.5rem;
+.directTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem clamp(1.25rem, 4vw, 3.75rem);
+  color: #a5a69b;
+  font-size: 0.56rem;
+  letter-spacing: 0.13em;
 }
-.introCase:nth-child(3) {
-  margin-bottom: 0.6rem;
+.directTopbar button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  color: #eeeade;
+  font-size: 0.75rem;
+  letter-spacing: 0;
 }
-.settled {
+.directContent {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  gap: clamp(2rem, 7vw, 7rem);
+  max-width: 72rem;
   margin: 0 auto;
-  max-width: 54rem;
-  opacity: 0;
-  padding: 4rem 0 0;
-  transform: translateY(1rem);
-  transition:
-    opacity 360ms ease,
-    transform 360ms ease;
+  padding: 2rem clamp(1.25rem, 4vw, 3.75rem) 4rem;
 }
-.settled[data-visible="true"] {
-  opacity: 1;
-  transform: none;
-}
-.header {
-  border-bottom: 1px solid #272a24;
-  padding-bottom: 1.5rem;
+.directTicketPanel {
   text-align: center;
 }
-.headerMeta {
-  margin: 1rem 0 0;
+.directKicker {
+  margin: 0 0 1rem;
+  color: #a9ab9e;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
 }
-.winner {
-  padding: 3rem 0 0;
-  text-align: center;
-}
-.winnerTicket {
-  margin: 2.25rem auto 0;
-  max-width: 19rem;
-  width: min(100%, 19rem);
-}
-.winner h2,
-.noWinner h2 {
-  font-size: clamp(1.7rem, 4vw, 3rem);
+.directTicketPanel h1 {
+  margin: 0;
+  color: #eeeade;
+  font-size: clamp(1.65rem, 3vw, 2.7rem);
   font-weight: 600;
   letter-spacing: -0.05em;
-  line-height: 1.05;
-  margin: 0.85rem 0 0;
+  line-height: 1.08;
 }
-.winnerMeta {
-  margin: 0.75rem 0 0;
+.directMeta {
+  margin: 0.75rem 0 1.5rem;
+  color: #a4a897;
+  font-size: 0.7rem;
 }
-.noWinner {
-  border-bottom: 1px solid #272a24;
-  padding: 4rem 0;
-  text-align: center;
+.directTicketMount {
+  width: min(100%, 21.875rem);
+  margin: 0 auto;
+  text-align: left;
 }
-.noWinner p {
-  margin: 1rem 0 0;
-}
-.results {
-  margin-top: 4rem;
-}
-.resultsHeader {
-  align-items: baseline;
-  border-bottom: 1px solid #272a24;
+.directActions {
   display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  padding-bottom: 0.8rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  font-size: 0.7rem;
 }
-.resultsHeader h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+.directActions button,
+.directActions a {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid #727965;
+  color: #eeeade;
+}
+.directActions a {
+  border-color: transparent;
+  color: #aaa9a2;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.2rem;
+}
+.directActions a:hover,
+.directActions a:focus-visible {
+  color: #eeeade;
+  text-decoration-color: currentColor;
+}
+.directDialog button:focus-visible,
+.directDialog a:focus-visible {
+  outline: 2px solid #eeeade;
+  outline-offset: 4px;
+}
+.directRankingSection {
+  min-width: 0;
+  padding-top: 0.4rem;
+}
+.directSectionHeading {
+  margin-bottom: 1.25rem;
+}
+.directSectionHeading h2 {
   margin: 0;
+  color: #eeeade;
+  font-size: 1.1rem;
+  font-weight: 550;
+  letter-spacing: -0.035em;
 }
-.resultsHeader span {
-  color: #959a8e;
-  font-size: 0.65rem;
-}
-.results ol {
-  list-style: none;
+.directRanking {
   margin: 0;
   padding: 0;
+  list-style: none;
 }
-.results li {
-  align-items: center;
-  border-bottom: 1px solid #20231f;
+.directRanking li {
   display: flex;
-  gap: 1rem;
-  min-height: 4.7rem;
-  padding: 0.75rem 0;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 5rem;
+  padding: 1rem 0;
+  border-top: 1px solid #272a24;
 }
-.results li[data-winner="true"] {
+.directRanking li[data-winner="true"] {
   color: #eee3b1;
 }
-.place {
+.directPlace {
+  flex: 0 0 1.7rem;
   color: #959a8e;
-  flex: 0 0 2rem;
   font-family: monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
-.filmTitle {
+.directFilmTitle {
   flex: 1;
   min-width: 0;
 }
-.votes {
+.directVotes {
+  flex: 0 0 3.9rem;
   color: #a7ab9c;
-  flex: 0 0 4.5rem;
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   text-align: right;
 }
-.votes strong {
-  color: #eeeade;
+.directVotes strong {
   display: block;
-  font-size: 1.5rem;
+  margin-bottom: 0.3rem;
+  color: #eeeade;
+  font-size: 1.45rem;
   font-weight: 550;
   letter-spacing: -0.04em;
   line-height: 1;
-  margin-bottom: 0.3rem;
 }
-@keyframes caseRise {
-  from {
-    opacity: 0;
-    transform: translateY(2.5rem) rotate(1deg);
+@media (max-width: 52rem) {
+  .directContent {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 44rem;
   }
-  to {
-    opacity: 1;
-    transform: none;
+  .directRankingSection {
+    padding-top: 1rem;
   }
 }
-@media (max-width: 40rem) {
-  .page {
-    padding-inline: 1rem;
+@media (max-width: 34rem) {
+  .directTopbar {
+    padding: 0.75rem 1.25rem;
   }
-  .settled {
-    padding-top: 2.5rem;
+  .directContent {
+    padding-top: 0.75rem;
   }
-  .winner {
-    padding-top: 2.5rem;
-  }
-  .winnerTicket {
-    max-width: 15rem;
-  }
-  .results li {
+  .directRanking li {
     gap: 0.7rem;
   }
-  .place {
-    flex-basis: 1.7rem;
+  .directPlace {
+    flex-basis: 1.35rem;
   }
-  .votes {
-    flex-basis: 3.8rem;
+  .directVotes {
+    flex-basis: 3.4rem;
+  }
+}
+@media print {
+  :global(body):has(.directDialog[open]) {
+    background: white !important;
+    overflow: visible !important;
+  }
+  :global(body):has(.directDialog[open]) > :not(.directDialog) {
+    display: none !important;
+  }
+  .directDialog[open] {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    background: white;
+    color: #111;
+  }
+  .directTopbar,
+  .directRankingSection,
+  .directActions,
+  .directKicker,
+  .directMeta,
+  .directTicketPanel h1 {
+    display: none !important;
+  }
+  .directContent {
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .directTicketPanel {
+    display: block;
+  }
+  .directTicketMount {
+    width: 80mm !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    animation: none !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .introCase,
-  .settled {
+  .powerSwitch::after {
     animation: none;
-    transition: none;
-  }
-  .introCase {
     opacity: 1;
-    transform: none;
   }
 }
