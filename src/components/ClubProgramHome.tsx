@@ -249,7 +249,7 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
         ? roundState.scheduledAt
         : roundState.status === "idle"
           ? null
-          : programme.activeScreening.scheduledAt;
+          : (programme.activeScreening?.scheduledAt ?? null);
 
   const statusLabel =
     roundState.status === "scheduled"
@@ -316,8 +316,8 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
 
           {roundState.status === "open" ? (
             <FilmVoteWall
-              key={`${boardId}:${roundState.candidateIds?.join(",") ?? "legacy"}`}
-              boardId={boardId}
+              key={`${roundState.boardId}:${roundState.candidateIds?.join(",") ?? "legacy"}`}
+              boardId={roundState.boardId}
               candidateIds={roundState.candidateIds}
               onLeaderChange={setLeader}
               onRoundClosed={handleRoundClosed}

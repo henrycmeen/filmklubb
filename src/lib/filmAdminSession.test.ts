@@ -18,6 +18,7 @@ import handler from "../pages/api/club/admin-session";
 import adminHandler from "../pages/api/club/admin";
 
 const directory = mkdtempSync(path.join(tmpdir(), "film-admin-auth-"));
+process.env.CLUB_DB_PATH = path.join(directory, "votes.sqlite");
 process.env.FILMKLUBB_ADMIN_AUTH_PATH = path.join(directory, "admin.json");
 process.env.FILMKLUBB_LOCAL_ADMIN = "1";
 process.env.NEXT_PUBLIC_BASE_PATH = "/filmklubb";
@@ -30,7 +31,7 @@ function request(
   return {
     method: body ? "POST" : "GET",
     body,
-    query: { clubSlug: "NA" },
+    query: { clubSlug: "DEFAULT" },
     cookies: {},
     headers: {
       host: "127.0.0.1:3058",
@@ -100,16 +101,16 @@ void test("setup is local and stores only a salted password hash with restricted
 
 void test("sessions are signed, expire, and cannot be reused for a different club", () => {
   const now = Date.now();
-  const cookie = createAdminSession("na", now);
-  assert.equal(verifyAdminSession(cookie, "na", now), true);
+  const cookie = createAdminSession("default", now);
+  assert.equal(verifyAdminSession(cookie, "default", now), true);
   assert.equal(verifyAdminSession(cookie, "other", now), false);
-  assert.equal(verifyAdminSession(cookie, "na", now - 1), false);
+  assert.equal(verifyAdminSession(cookie, "default", now - 1), false);
   assert.equal(
-    verifyAdminSession(cookie, "na", now + 8 * 60 * 60 * 1000),
+    verifyAdminSession(cookie, "default", now + 8 * 60 * 60 * 1000),
     false,
   );
-  assert.equal(verifyAdminSession(`X${cookie}`, "na", now), false);
-  assert.equal(verifyAdminSession("garbage", "na", now), false);
+  assert.equal(verifyAdminSession(`X${cookie}`, "default", now), false);
+  assert.equal(verifyAdminSession("garbage", "default", now), false);
   assert.match(
     serializeAdminCookie(cookie, true),
     /Path=\/filmklubb; HttpOnly; SameSite=Strict; Max-Age=28800; Secure$/,
@@ -123,7 +124,7 @@ void test("admin data and writes require a session, login/logout use protected c
     invoke(
       request({
         action: "close",
-        boardId: "na-2026-09-22",
+        boardId: "default-screening",
         expectedRevision: 0,
       }),
       adminHandler,

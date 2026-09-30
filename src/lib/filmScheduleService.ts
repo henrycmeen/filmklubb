@@ -81,7 +81,7 @@ export function getPublicFilmRound(
       return round.published ? scheduledStatus(round, store, now) : null;
     const snapshot = store.getLockedRound(boardId);
     if (snapshot) return { status: "closed", boardId, snapshot };
-    return screeningId === legacy.screeningId
+    return legacy && screeningId === legacy.screeningId
       ? { status: "open", boardId }
       : null;
   }
@@ -95,7 +95,7 @@ export function getPublicFilmRound(
   );
   if (active) return scheduledStatus(active, store, now);
   // Preparing a new draft must not switch off an existing unmanaged round.
-  if (!rounds.some((round) => round.boardId === legacy.boardId)) {
+  if (legacy && !rounds.some((round) => round.boardId === legacy.boardId)) {
     const snapshot = store.getLockedRound(legacy.boardId);
     return snapshot
       ? { status: "closed", boardId: legacy.boardId, snapshot }

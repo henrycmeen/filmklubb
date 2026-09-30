@@ -12,7 +12,7 @@ process.env.FILMKLUBB_ADMIN_AUTH_PATH = path.join(directory, "admin.json");
 process.env.FILMKLUBB_LOCAL_ADMIN = "1";
 const [
   { getFilmVoteStore },
-  { buildScheduledFilmRoundMetadata, getCurrentFilmRound },
+  { buildScheduledFilmRoundMetadata },
   { setInitialAdminPassword, createAdminSession, ADMIN_COOKIE },
   { default: round },
   { default: results },
@@ -129,24 +129,23 @@ void test("authenticated admin creates and closes a round without changing votes
     resultsAt: date(7_200_000),
     displayUntil: date(90_000_000),
   };
-  const legacy = getCurrentFilmRound("default");
-  store.setVote(legacy.boardId, film.id, "legacy-voter", true);
-  const rejectedDraft = await call(
+  const initial = await call(round, { clubSlug: "default" });
+  assert.deepEqual(initial.body, { status: "idle" });
+  const draft = await call(
     admin,
     { clubSlug: "default" },
     {
       action: "save",
       expectedRevision: null,
-      round: { ...fields, screeningId: legacy.screeningId, published: false },
+      round: { ...fields, screeningId: "first-draft", published: false },
     },
     cookie,
   );
-  assert.equal(rejectedDraft.status, 409);
-  assert.equal(store.getScheduledRound(legacy.boardId), null);
-  const legacyState = await call(round, { clubSlug: "default" });
-  assert.equal((legacyState.body as { status: string }).status, "open");
-  store.setVote(legacy.boardId, film.id, "second-legacy-voter", true);
-  assert.equal(store.getResults(legacy.boardId, [film.id]).totalVotes, 2);
+  assert.equal(draft.status, 200);
+  assert.equal((draft.body as { current: unknown }).current, null);
+  assert.deepEqual((await call(round, { clubSlug: "default" })).body, {
+    status: "idle",
+  });
   const saved = await call(
     admin,
     { clubSlug: "default" },

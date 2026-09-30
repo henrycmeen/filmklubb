@@ -120,9 +120,12 @@ export const getFilmRoundBoardId = (
 export const isConfiguredClub = (clubId: string): boolean =>
   configuredClubIds.has(clubId);
 
-export const getCurrentFilmRound = (clubSlug?: string): CurrentFilmRound => {
+export const getCurrentFilmRound = (
+  clubSlug?: string,
+): CurrentFilmRound | null => {
   const clubId = resolveCanonicalClubId(clubSlug);
   const programme = getFilmClubProgramme(clubId);
+  if (!programme.activeScreening) return null;
   const screeningId = programme.activeScreening.id;
 
   return {
@@ -138,6 +141,8 @@ export const buildFilmRoundLockMetadata = (
   screeningId?: string,
 ): FilmRoundLockMetadata => {
   const current = getCurrentFilmRound(clubSlug);
+  if (!current)
+    throw new Error("No legacy screening is configured for this club.");
   if (screeningId !== undefined && screeningId !== current.screeningId) {
     throw new Error("Only the configured current screening can be locked.");
   }

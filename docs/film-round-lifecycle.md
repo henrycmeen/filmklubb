@@ -1,79 +1,37 @@
-# Rundeplan og admin – lokal implementasjon
+# Runder, datoer og admin
 
-## Beslutning
+Hver filmkveld har en stabil runde-ID, kandidater, sted og en tidsplan. Nye installasjoner begynner uten en aktiv runde. Opprett første arrangement på `/<klubb-id>/admin`; publiserte arrangementer vises på `/<klubb-id>`.
 
-Behold VHS/TV-uttrykket, alle filmer og den eksisterende billettskriveren.
-Administrasjonen skal styre en stabil runde-ID, kandidater, sted og disse tidene
-i **Europe/Oslo**:
+## Tidspunkter i Europe/Oslo
 
-1. Stemmestart og stemmefrist.
-2. Offentliggjøring av resultatet.
-3. Visningstid og hvor lenge resultatet er hovedvisningen.
+| Tidspunkt                | Betydning                                  |
+| ------------------------ | ------------------------------------------ |
+| Stemmestart              | Når klubben kan begynne å stemme           |
+| Stemmefrist              | Når serveren stopper nye stemmer           |
+| Resultat                 | Når vinneren og stemmetall blir offentlige |
+| Visning                  | Når filmen skal vises; brukes på billetten |
+| Slutt på resultatperiode | Når arrangementet går til historikken      |
 
-«Avslutt nå» lukker og offentliggjør samtidig. September vises til
-22. september 2026 kl. 23.59 Oslo. Oktober er ikke datofestet; skjemaet for
-neste runde starter uten oppdiktede datoer. En databasekladd krever foreløpig
-at tidsfeltene er fylt ut, og publiseres ikke før administrator velger det.
+Tidene må være i denne rekkefølgen. Skjemaet viser valideringsfeil før lagring. Publiserte resultat-/stemmeperioder kan ikke overlappe. Kandidater og metadata fryses når en publisert avstemning starter. En ny kladd påvirker ikke dagens stemmer. «Avslutt nå» låser og offentliggjør med én gang; en lukket runde kan ikke gjenåpnes.
 
-## Ruter og bevaring
+Admin grupperer arrangementer som aktive, planlagte og historiske. Velg et arrangement for å redigere; opprett neste separat. Filmutvalg og intern ID er sammenfoldet, og navigasjon varsler om ulagrede endringer.
 
-Admin åpner med arrangementene gruppert som Aktive, Planlagte og Historiske.
-Klikk på ett arrangement for tidsplanen; nye arrangementer opprettes separat.
-Skjemaet skiller avstemning, resultatperiode og visning. Filmutvalg og intern ID
-er sammenfoldet, og navigasjon varsler om ulagrede endringer.
+## Resultater og historikk
 
-- `/NA/admin`: passordbeskyttet styring av nåværende/neste runde.
-- `/NA`: åpen avstemning, ventetilstand, avsluttet runde eller ingen neste runde.
-- `/NA/historikk`: gjennomførte runder.
-- `/NA?screening=<stabil-id>&result=1`: gammel vinner, billett og alle resultater,
-  uten å måtte spille finalen på nytt.
+Serveren håndhever fristen i samme transaksjon som en stemme. Avslutningen materialiseres ved første relevante forespørsel etter fristen; det kreves ingen cronjobb. Åpne nettlesere sjekker rundefasen hvert 15. sekund når de er synlige. Ingen forespørsel etter fristen kan legge til eller fjerne en stemme. API-ene holder resultatene tilbake til offentliggjøring.
 
-Alle ruter får installasjonens `NEXT_PUBLIC_BASE_PATH` foran seg. I denne
-forhåndsvisningen er det `/filmklubb`.
+Resultatet fryses som et snapshot med vinner, alle stemmetall og billett. Etter resultatperioden går runden til historikken ved neste forespørsel. Tidligere visninger ligger under klubbens nåværende program og på `/<klubb-id>/historikk`. En enkelt runde kan åpnes med `/<klubb-id>?screening=<runde-id>&result=1`.
 
-`film_rounds` er en additiv SQLite-tabell i samme database som stemmene.
-Eksisterende, uplanlagte runder virker som før. En kladd for neste runde
-endrer ikke dagens stemmer. Publiserte tidsintervaller kan ikke overlappe.
-Endringer bruker revisjonskontroll. Metadata/kandidater fryses når en
-publisert avstemning starter, og det endelige resultatet lagres uforanderlig.
+Før visning bruker vinnerresultatet billettfinalen. Fra visningstidspunktet åpner det resultatlisten direkte. Arkivet bevarer stemmene fra hver runde; det kopierer dem ikke til neste avstemning.
 
-Serveren håndhever stemmefristen i samme transaksjon som en stemme. Avslutning
-materialiseres ved første relevante forespørsel etter fristen, ikke av en
-separat timer. Etter `displayUntil` markeres runden som gjennomført ved neste
-forespørsel. Åpne nettlesere sjekker rundefase hvert 15. sekund når de er synlige.
-Ingen forespørsel etter fristen kan legge til/fjerne en stemme. Resultater
-holdes tilbake frem til offentliggjøring i både runde-, stemme- og resultat-API.
+## Admin og lagring
 
-## Passord
+Første passord settes direkte på servermaskinen i utviklingsmodus med `FILMKLUBB_LOCAL_ADMIN=1`. Det krever ekte loopbackforbindelse og lokal Host; proxy og tunnel godtas ikke. Serveren lagrer scrypt-hash, salt og separat sesjonssignering med filmodus `0600`. Passordet skal aldri i Git.
 
-Administrator velger selv passordet i det lokale oppsettsskjemaet, minst 10 tegn.
-Ikke send passordet i chat eller legg det i Git. Serveren lagrer scrypt-hash,
-tilfeldig salt og separat sesjonssignering i en fil med modus `0600`.
-Innlogging bruker en signert åttetimers HttpOnly/SameSite-cookie; HTTPS bruker
-også Secure. Handlinger krever både sesjon og riktig Origin, og innlogging
-har begrensning per socketadresse, uten å stole på klientens forwarding-header.
+Innlogging bruker en signert åttetimers HttpOnly/SameSite-cookie, også Secure over HTTPS. Skrivehandlinger krever både sesjon og riktig Origin. Innlogging har rate limit. Sett `FILMKLUBB_ADMIN_ORIGIN` til riktig HTTPS-origin og bevar `FILMKLUBB_ADMIN_AUTH_PATH` på varig lagring før offentlig drift. Se [driftsveiledningen](self-hosting.md).
 
-Lokalt oppsett krever `FILMKLUBB_LOCAL_ADMIN=1`, ikke-produksjonsmodus, ekte
-loopbackforbindelse og lokal Host. Proxy/tunnel kan ikke opprette passord.
-`FILMKLUBB_ADMIN_AUTH_PATH` peker på den lokale konfigurasjonen; standard er
-`data/club/admin-auth.json` (Git-ignorert). Før eventuell publisering må korrekt
-HTTPS `FILMKLUBB_ADMIN_ORIGIN` og varig, beskyttet passordlagring konfigureres.
-Dette arbeidet publiserer ingenting og endrer ingen produksjonstilganger.
+## Eldre installasjoner
 
-## Lokal test
+`activeScreening` i programfilen støtter eldre filbaserte runder. Behold slike ID-er når du oppgraderer en eksisterende klubb. Sett den til `null` for nye klubber. Databasetabellen `film_rounds` er additiv; kodeoppgradering skal aldri erstattes med sletting av databasen.
 
-Runtime på `127.0.0.1:3058` bruker bare `.cache/closed-preview/votes.sqlite`.
-`scripts/club/prepare-scheduled-preview.ts` godtar kun den kjente lokale
-20-stemmers prøvedatabasen, sikkerhetskopierer prøvestemmer/snapshot og
-verifiserer at begge forblir uendret ved registrering av septemberplanen.
-Ingen ekte stemmer kopieres. Quick-tunnelens eksisterende, begrensede gateway
-viser en eldre statisk forhåndsvisning og gir ikke tilgang til admin.
-
-Regresjonstester dekker frister på grensen, publiseringsvern, ny kladd,
-automatisk historikk, uforanderlige snapshots, revisjonskonflikter, kandidat-
-delutvalg, Oslo/sommertid og passord/session/Origin/rate-limit.
-
-Før produksjon: gjennomgå og godkjenn diffen, sikkerhetskopier riktig database,
-registrer den ekte runden med eksisterende stemmer intakt, sett passord lokalt
-og verifiser de faktiske publiseringsadressene. Ingen automatisk produksjons-
-migrering eller avstemningslukking er del av lokal oppstart.
+Terminalverktøyet `scripts/club/lock-round.ts` er for kontrollert håndtering av eldre runder. Kjør uten `--commit` for å lese ID og revisjon først. Vanlig planlegging og avslutning skjer i admin.

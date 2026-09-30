@@ -25,7 +25,7 @@ export function makeFilmTicket(
     palette: ticketPalettes[film.id] ?? art?.palette ?? "ember",
     date: "2026-09-22",
     time: "16:00",
-    venue: "Wergelandssalen",
+    venue: "Eksempelkino",
     note: "ADGANG FOR ÉN",
     serial,
   };

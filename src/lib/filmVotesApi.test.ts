@@ -35,16 +35,9 @@ const deviceCookie = (seed: number): Record<string, string> => ({
 
 const { default: handler } = await import("../pages/api/club/votes");
 const { getFilmVoteStore } = await import("./filmVotes");
-const { buildFilmRoundLockMetadata, buildScheduledFilmRoundMetadata } =
-  await import("./filmRoundService");
+const { buildScheduledFilmRoundMetadata } = await import("./filmRoundService");
 const store = getFilmVoteStore();
 
-const legacyBoardIds = new Set([
-  "na",
-  "default",
-  "na-2026-09-22",
-  "default-2026-09-22",
-]);
 const fixtureScheduleTimes = {
   voteStartsAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
   voteEndsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -54,7 +47,7 @@ const fixtureScheduleTimes = {
 };
 
 const ensureScheduledFixture = (boardId: string): void => {
-  if (legacyBoardIds.has(boardId) || store.getScheduledRound(boardId)) {
+  if (store.getScheduledRound(boardId)) {
     return;
   }
 
@@ -93,7 +86,7 @@ const invoke = async ({
   clientIp = "203.0.113.8",
   cookies = deviceCookie(1),
   method,
-  query = { boardId: "na" },
+  query = { boardId: "demo-screening" },
   remoteAddress = "127.0.0.1",
   seedFixture = true,
 }: {
@@ -150,8 +143,28 @@ after(async () => {
   await fs.rm(testDirectory, { force: true, recursive: true });
 });
 
+void test("a fresh template rejects votes without a published election", async () => {
+  const response = await invoke({
+    body: { filmId: firstFilmId },
+    method: "POST",
+    query: { boardId: "default-screening" },
+    seedFixture: false,
+  });
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, {
+    error: { code: "INVALID_REQUEST", message: "Ugyldig stemme." },
+  });
+  assert.equal(
+    store.getResults("default-screening", [firstFilmId]).totalVotes,
+    0,
+  );
+});
+
 void test("GET returns the shared ranking and this device's voted films", async () => {
-  const response = await invoke({ method: "GET", query: { boardId: "NA" } });
+  const response = await invoke({
+    method: "GET",
+    query: { boardId: "DEMO-SCREENING" },
+  });
 
   assert.equal(response.statusCode, 200);
   const body = response.body as {
@@ -160,7 +173,7 @@ void test("GET returns the shared ranking and this device's voted films", async 
     revision: number;
     votedFilmIds: number[];
   };
-  assert.equal(body.boardId, "na");
+  assert.equal(body.boardId, "demo-screening");
   assert.equal(body.ranking.length, filmVoteCatalogue.length);
   assert.equal(body.ranking[0]?.filmId, firstFilmId);
   assert.equal(body.revision, 0);
@@ -485,10 +498,11 @@ void test("rejects unsupported methods with the stable error shape", async () =>
 });
 
 void test("rejects vote changes after the round has been locked", async () => {
-  const boardId = "default-2026-09-22";
+  const boardId = "locked-screening";
+  ensureScheduledFixture(boardId);
   const film = filmVoteCatalogue[0]!;
   store.setVote(boardId, film.id, "round-closed-voter", true);
-  store.lockRound(boardId, buildFilmRoundLockMetadata("default"), 1);
+  store.lockRound(boardId, store.getScheduledRound(boardId)!.metadata, 1);
 
   const response = await invoke({
     body: { filmId: film.id },

@@ -104,7 +104,7 @@ const makeNewDraft = (screeningId: string): FormDraft => {
     resultsAt: "",
     scheduledAt: "",
     displayUntil: "",
-    venue: "Wergelandshallen",
+    venue: "",
     published: false,
     candidateIds: [],
   };
@@ -219,7 +219,8 @@ export function FilmClubRoundForm({
     const needle = query.trim().toLocaleLowerCase("nb-NO");
     const originalIds = new Set(round ? getRoundCandidateIds(round) : []);
     return normalizedCatalogue.filter((film) => {
-      if (restrictCandidates && round && !originalIds.has(film.id)) return false;
+      if (restrictCandidates && round && !originalIds.has(film.id))
+        return false;
       if (!needle) return true;
       return `${film.title} ${film.year}`
         .toLocaleLowerCase("nb-NO")

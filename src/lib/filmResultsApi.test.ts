@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import type { NextApiRequest, NextApiResponse } from "next";
+import type { FilmRoundLockMetadata } from "./filmRound";
 import filmVoteCatalogue from "@/data/filmVoteCatalogue.json";
 
 const testDirectory = await fs.mkdtemp(
@@ -12,8 +13,7 @@ const testDirectory = await fs.mkdtemp(
 process.env.CLUB_DB_PATH = path.join(testDirectory, "results.sqlite");
 
 const { getFilmVoteStore } = await import("./filmVotes");
-const { getActiveVoteBoardId } = await import("./filmClubProgramme");
-const { buildFilmRoundLockMetadata } = await import("./filmRoundService");
+const { buildScheduledFilmRoundMetadata } = await import("./filmRoundService");
 const { default: handler } = await import("../pages/api/club/results");
 
 interface RecordedResponse {
@@ -58,122 +58,125 @@ after(async () => {
   await fs.rm(testDirectory, { force: true, recursive: true });
 });
 
-void test("returns the active screening, exact ranking, and aggregate use", async () => {
-  const firstFilmId = filmVoteCatalogue[0]!.id;
-  const secondFilmId = filmVoteCatalogue[1]!.id;
-  const store = getFilmVoteStore();
-  store.setVote("na", firstFilmId, "legacy-ip-key", true);
-  store.setVote("na-2026-09-06", secondFilmId, "previous-round-device", true);
-  store.setVote("na-2026-09-22", secondFilmId, "device-v1:a", true);
-  store.setVote("na-2026-09-22", secondFilmId, "device-v1:b", true);
-  store.setVote("na-2026-09-22", firstFilmId, "device-v1:a", true);
+const createOpenRound = (
+  clubId: string,
+  candidateIds: number[],
+  customize?: (metadata: FilmRoundLockMetadata) => void,
+) => {
+  const instant = (offset: number) =>
+    new Date(Date.now() + offset).toISOString();
+  const screeningId = "first-screening";
+  const scheduledAt = instant(86_400_000);
+  const metadata = buildScheduledFilmRoundMetadata(
+    clubId,
+    screeningId,
+    scheduledAt,
+    "Testsal",
+    candidateIds,
+  );
+  customize?.(metadata);
+  const input = {
+    clubId,
+    screeningId,
+    boardId: `${clubId}-${screeningId}`,
+    metadata,
+    scheduledAt,
+    venue: "Testsal",
+    published: true,
+    voteStartsAt: instant(-3_600_000),
+    voteEndsAt: instant(3_600_000),
+    resultsAt: instant(7_200_000),
+    displayUntil: instant(90_000_000),
+  };
+  getFilmVoteStore().saveScheduledRound(input, null);
+  return input;
+};
 
-  const response = await invoke();
+void test("fresh template has no fabricated results", async () => {
+  assert.equal(
+    (await invoke({ query: { clubSlug: "default" } })).statusCode,
+    404,
+  );
+});
+
+void test("returns scheduled screening, exact ranking and private aggregate use", async () => {
+  const first = filmVoteCatalogue[0]!;
+  const second = filmVoteCatalogue[1]!;
+  const round = createOpenRound("ranking-fixture", [first.id, second.id]);
+  const store = getFilmVoteStore();
+  store.setVote("unrelated-board", first.id, "other-voter", true);
+  store.setVote(round.boardId, second.id, "device-v1:a", true);
+  store.setVote(round.boardId, second.id, "device-v1:b", true);
+  store.setVote(round.boardId, first.id, "device-v1:a", true);
+  const response = await invoke({ query: { clubSlug: round.clubId } });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers["cache-control"], "private, no-store");
   const body = response.body as {
     activeScreening: { id: string; scheduledAt: string };
-    club: { id: string; name: string };
+    ranking: unknown[];
     history: unknown[];
-    ranking: Array<{
-      filmId: number;
-      rank: number;
-      tmdbVoteAverage: number;
-      votes: number;
-    }>;
     revision: number;
     stats: {
-      lastVoteAt: string | null;
-      participatingDevices: number;
       totalVotes: number;
+      participatingDevices: number;
+      lastVoteAt: string;
     };
   };
-  assert.deepEqual(body.club, { id: "na", name: "Nasjonalarkivet" });
   assert.deepEqual(body.activeScreening, {
-    id: "2026-09-22",
-    scheduledAt: "2026-09-22T16:00:00+02:00",
+    id: round.screeningId,
+    scheduledAt: round.scheduledAt,
   });
   assert.deepEqual(body.ranking[0], {
-    filmId: secondFilmId,
+    filmId: second.id,
     rank: 1,
-    title: filmVoteCatalogue[1]!.title,
-    coverImage: filmVoteCatalogue[1]!.coverImage,
-    tmdbVoteAverage: filmVoteCatalogue[1]!.tmdbVoteAverage,
+    title: second.title,
+    coverImage: second.coverImage,
+    tmdbVoteAverage: second.tmdbVoteAverage,
     votes: 2,
   });
   assert.equal(body.revision, 3);
   assert.equal(body.stats.totalVotes, 3);
   assert.equal(body.stats.participatingDevices, 2);
-  assert.match(body.stats.lastVoteAt ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(body.stats.lastVoteAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.deepEqual(body.history, []);
   assert.equal(JSON.stringify(body).includes("device-v1"), false);
 });
 
-void test("maps the long Nasjonalarkivet alias to the same active results", async () => {
-  const response = await invoke({ query: { clubSlug: "nasjonalarkivet" } });
-  const body = response.body as {
-    club: { id: string };
-    revision: number;
-  };
-
-  assert.equal(body.club.id, "na");
-  assert.equal(body.revision, 3);
-});
-
-void test("orders tied results by TMDB score", async () => {
+void test("orders tied scheduled results by TMDB score", async () => {
   const master = filmVoteCatalogue.find(({ title }) => title === "The Master")!;
   const yiYi = filmVoteCatalogue.find(({ title }) => title === "Yi Yi")!;
-  const boardId = getActiveVoteBoardId("default");
+  const round = createOpenRound("ties-fixture", [master.id, yiYi.id]);
   const store = getFilmVoteStore();
-  store.setVote(boardId, master.id, "results-master", true);
-  store.setVote(boardId, yiYi.id, "results-yi-yi", true);
-
-  const response = await invoke({ query: { clubSlug: "default" } });
-  const body = response.body as {
-    ranking: Array<{ filmId: number; votes: number }>;
-  };
-
-  assert.deepEqual(body.ranking.slice(0, 2), [
-    {
-      filmId: yiYi.id,
-      rank: 1,
-      title: yiYi.title,
-      coverImage: yiYi.coverImage,
-      tmdbVoteAverage: yiYi.tmdbVoteAverage,
-      votes: 1,
-    },
-    {
-      filmId: master.id,
-      rank: 2,
-      title: master.title,
-      coverImage: master.coverImage,
-      tmdbVoteAverage: master.tmdbVoteAverage,
-      votes: 1,
-    },
-  ]);
+  store.setVote(round.boardId, master.id, "results-master", true);
+  store.setVote(round.boardId, yiYi.id, "results-yi-yi", true);
+  const response = await invoke({ query: { clubSlug: round.clubId } });
+  assert.equal(response.statusCode, 200);
+  const body = response.body as { ranking: Array<{ filmId: number }> };
+  assert.deepEqual(
+    body.ranking.map(({ filmId }) => filmId),
+    [yiYi.id, master.id],
+  );
 });
 
 void test("rejects unsupported methods", async () => {
   const response = await invoke({ method: "POST" });
-
   assert.equal(response.statusCode, 405);
   assert.equal(response.headers.allow, "GET");
 });
 
-void test("closed results use frozen film metadata, scores and totals", async () => {
-  const clubId = "frozen-results";
-  const boardId = getActiveVoteBoardId(clubId);
-  const metadata = buildFilmRoundLockMetadata(clubId);
-  const first = metadata.catalogue[0]!;
-  first.title = "Title when the round closed";
-  metadata.ticketTemplates[String(first.id)]!.film.title = first.title;
-  first.tmdbVoteAverage = 6.5;
+void test("closed scheduled results use frozen metadata, scores and totals", async () => {
+  const first = filmVoteCatalogue[0]!;
+  const round = createOpenRound("frozen-results", [first.id], (metadata) => {
+    metadata.catalogue[0]!.title = "Title when the round closed";
+    metadata.ticketTemplates[String(first.id)]!.film.title =
+      "Title when the round closed";
+    metadata.catalogue[0]!.tmdbVoteAverage = 6.5;
+  });
   const store = getFilmVoteStore();
-  store.setVote(boardId, first.id, "private-test-voter", true);
-  store.lockRound(boardId, metadata, 1);
-  first.title = "Later catalogue title";
-
-  const response = await invoke({ query: { clubSlug: clubId } });
+  store.setVote(round.boardId, first.id, "private-test-voter", true);
+  store.closeScheduledRound(round.boardId, 0);
+  round.metadata.catalogue[0]!.title = "Later catalogue title";
+  const response = await invoke({ query: { clubSlug: round.clubId } });
   const body = response.body as {
     ranking: Array<{ title: string; votes: number; tmdbVoteAverage: number }>;
     stats: { totalVotes: number };

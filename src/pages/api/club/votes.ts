@@ -6,7 +6,7 @@ import {
   legacyFilmCatalogue,
   legacyFilmIds,
 } from "@/lib/filmCatalogue";
-import { getActiveVoteBoardId } from "@/lib/filmClubProgramme";
+import { getLegacyVoteBoardIds } from "@/lib/filmClubProgramme";
 import { FilmRoundClosedError } from "@/lib/filmRound";
 import {
   FilmRoundNotOpenError,
@@ -39,12 +39,7 @@ const legacyCatalogueFilmIds = legacyFilmCatalogue.map((film) => film.id);
 const tieBreakScores = new Map(
   legacyFilmCatalogue.map((film) => [film.id, film.tmdbVoteAverage]),
 );
-const legacyBoardIds = new Set([
-  "na",
-  "default",
-  getActiveVoteBoardId("na"),
-  getActiveVoteBoardId("default"),
-]);
+const legacyBoardIds = new Set(getLegacyVoteBoardIds());
 
 const voteInputSchema = z
   .object({
@@ -68,7 +63,7 @@ const resolveBoardId = (req: NextApiRequest): string | null => {
   }
 
   const boardId = normalizeClubSlug(requestedBoardId);
-  return boardId.length <= 64 ? boardId : null;
+  return boardId.length <= 128 ? boardId : null;
 };
 
 const votingUnavailable = (res: NextApiResponse<ApiResponse>): void =>
@@ -119,15 +114,13 @@ export default async function handler(
         (now >= Date.parse(scheduled.voteEndsAt) &&
           now < Date.parse(scheduled.resultsAt))
       ) {
-        return res
-          .status(409)
-          .json({
-            error: {
-              code: "ROUND_CLOSED",
-              message:
-                "Avstemningen er ikke åpen. Resultatene vises ved offentliggjøring.",
-            },
-          });
+        return res.status(409).json({
+          error: {
+            code: "ROUND_CLOSED",
+            message:
+              "Avstemningen er ikke åpen. Resultatene vises ved offentliggjøring.",
+          },
+        });
       }
     }
     const voterSecret = await getOrCreateVoterSecret();
@@ -143,15 +136,13 @@ export default async function handler(
         (now >= Date.parse(scheduled.voteEndsAt) &&
           now < Date.parse(scheduled.resultsAt))
       ) {
-        return res
-          .status(409)
-          .json({
-            error: {
-              code: "ROUND_CLOSED",
-              message:
-                "Avstemningen er ikke åpen. Resultatene vises ved offentliggjøring.",
-            },
-          });
+        return res.status(409).json({
+          error: {
+            code: "ROUND_CLOSED",
+            message:
+              "Avstemningen er ikke åpen. Resultatene vises ved offentliggjøring.",
+          },
+        });
       }
     }
     const existingVoterKey = parseDeviceIdentity(
@@ -210,20 +201,18 @@ export default async function handler(
       : tieBreakScores;
     const snapshot = store.getSnapshot(boardId, voterKey, ids, scores);
     const locked = store.getLockedRound(boardId);
-    return res
-      .status(200)
-      .json(
-        locked
-          ? {
-              ...snapshot,
-              ranking: locked.ranking.map(({ film, votes }) => ({
-                filmId: film.id,
-                votes,
-              })),
-              revision: locked.revision,
-            }
-          : snapshot,
-      );
+    return res.status(200).json(
+      locked
+        ? {
+            ...snapshot,
+            ranking: locked.ranking.map(({ film, votes }) => ({
+              filmId: film.id,
+              votes,
+            })),
+            revision: locked.revision,
+          }
+        : snapshot,
+    );
   } catch (error) {
     if (
       error instanceof FilmRoundClosedError ||
@@ -238,14 +227,12 @@ export default async function handler(
     }
 
     if (error instanceof FilmRoundCandidateError) {
-      return res
-        .status(400)
-        .json({
-          error: {
-            code: "INVALID_REQUEST",
-            message: "Filmen er ikke med i denne avstemningen.",
-          },
-        });
+      return res.status(400).json({
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Filmen er ikke med i denne avstemningen.",
+        },
+      });
     }
 
     return votingUnavailable(res);

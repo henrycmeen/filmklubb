@@ -8,47 +8,57 @@ import {
   resolveCanonicalClubId,
 } from "./filmClubProgramme";
 
-void test("maps the Nasjonalarkivet route alias to the same programme", () => {
-  assert.equal(resolveCanonicalClubId("nasjonalarkivet"), "na");
-  assert.deepEqual(
-    getFilmClubProgramme("nasjonalarkivet"),
-    getFilmClubProgramme("na"),
-  );
-});
+const legacyProgramme = {
+  name: "Legacy fixture",
+  activeScreening: {
+    id: "fixture-screening",
+    scheduledAt: "2026-09-22T16:00:00+02:00",
+  },
+  history: [],
+};
 
-void test("builds a stable vote board id from the canonical club and screening", () => {
-  assert.equal(getActiveVoteBoardId("na"), "na-2026-09-22");
-  assert.equal(getActiveVoteBoardId("Nasjonalarkivet"), "na-2026-09-22");
-  assert.equal(getActiveVoteBoardId("na"), getActiveVoteBoardId("NA"));
-});
-
-void test("keeps unknown clubs deterministic and isolated from Nasjonalarkivet", () => {
-  assert.equal(resolveCanonicalClubId("guest-night"), "guest-night");
-  assert.notEqual(resolveCanonicalClubId("guest-night"), "na");
-  assert.equal(getActiveVoteBoardId("guest-night"), "guest-night-2026-09-22");
-  assert.notEqual(getActiveVoteBoardId("guest-night"), "na-2026-09-22");
-  assert.deepEqual(
-    getFilmClubProgramme("guest-night"),
-    getFilmClubProgramme("guest night"),
-  );
-});
-
-void test("validates the configured screening dates and empty history", () => {
-  const programme = getFilmClubProgramme("na");
-
-  assert.equal(programme.activeScreening.id, "2026-09-22");
-  assert.equal(
-    programme.activeScreening.scheduledAt,
-    "2026-09-22T16:00:00+02:00",
-  );
-  assert.deepEqual(programme.history, []);
+void test("accepts an empty club without a fabricated screening date", () => {
+  const config = filmClubProgrammeConfigSchema.parse({
+    clubs: { default: { name: "Filmklubben", history: [] } },
+    aliases: {},
+  });
+  assert.equal(config.clubs.default!.activeScreening, null);
   assert.equal(
     filmClubProgrammeConfigSchema.safeParse({
-      clubs: { na: programme, default: getFilmClubProgramme("default") },
-      aliases: { nasjonalarkivet: "na" },
+      clubs: {
+        default: { name: "Filmklubben", activeScreening: null, history: [] },
+      },
+      aliases: {},
     }).success,
     true,
   );
+});
+
+void test("preserves explicit legacy screening metadata and validates aliases", () => {
+  const config = filmClubProgrammeConfigSchema.parse({
+    clubs: { default: legacyProgramme, legacy: legacyProgramme },
+    aliases: { existing: "legacy" },
+  });
+  assert.deepEqual(
+    config.clubs.legacy!.activeScreening,
+    legacyProgramme.activeScreening,
+  );
+  assert.equal(config.aliases.existing, "legacy");
+  assert.equal(
+    filmClubProgrammeConfigSchema.safeParse({
+      clubs: { default: legacyProgramme },
+      aliases: { missing: "unknown" },
+    }).success,
+    false,
+  );
+});
+
+void test("fresh template and unknown namespaces have no legacy election", () => {
+  assert.equal(getFilmClubProgramme("default").activeScreening, null);
+  assert.equal(getActiveVoteBoardId("default"), null);
+  assert.equal(resolveCanonicalClubId("guest-night"), "guest-night");
+  assert.equal(getActiveVoteBoardId("guest-night"), null);
+  assert.deepEqual(getFilmClubProgramme("guest-night").history, []);
 });
 
 void test("validates history entries used by the results view", () => {

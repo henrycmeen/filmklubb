@@ -81,20 +81,61 @@ void test("public lifecycle respects exact opening, deadline, release and histor
   }
 });
 
-void test("October draft does not alter the active legacy election, and stays private", () => {
-  const now = new Date("2026-09-21T09:00:00Z");
+void test("fresh club remains idle for a draft and selects its first published schedule", () => {
+  let now = new Date("2026-08-31T21:59:59Z");
   const store = createFilmVoteStore(":memory:", undefined, () => now);
   try {
-    store.setVote("na-2026-09-22", filmId, "existing-voter", true);
-    const draft = schedule("oktober", false);
-    store.saveScheduledRound(draft, null);
-    assert.deepEqual(getPublicFilmRound("na", undefined, store, now), {
-      status: "open",
-      boardId: "na-2026-09-22",
+    assert.deepEqual(getPublicFilmRound("default", undefined, store, now), {
+      status: "idle",
     });
-    assert.equal(getPublicFilmRound("na", "oktober", store, now), null);
-    assert.equal(getPublicFilmHistory("na", store, now).length, 0);
-    assert.equal(store.getResults("na-2026-09-22", [filmId]).totalVotes, 1);
+    const draft = schedule("first-round", false);
+    draft.clubId = "default";
+    draft.boardId = "default-first-round";
+    draft.metadata = buildScheduledFilmRoundMetadata(
+      draft.clubId,
+      draft.screeningId,
+      draft.scheduledAt,
+      draft.venue,
+      [filmId],
+    );
+    const saved = store.saveScheduledRound(draft, null);
+    assert.deepEqual(getPublicFilmRound("default", undefined, store, now), {
+      status: "idle",
+    });
+    assert.equal(
+      getPublicFilmRound("default", "first-round", store, now),
+      null,
+    );
+    assert.equal(getPublicFilmRound("default", "2026-09-22", store, now), null);
+    store.saveScheduledRound({ ...draft, published: true }, saved.revision);
+    assert.equal(
+      getPublicFilmRound("default", undefined, store, now)?.status,
+      "scheduled",
+    );
+    now = new Date("2026-08-31T22:00:00Z");
+    assert.deepEqual(getPublicFilmRound("default", undefined, store, now), {
+      status: "open",
+      boardId: "default-first-round",
+      scheduledAt: draft.scheduledAt,
+      venue: draft.venue,
+      candidateIds: [filmId],
+    });
+    store.setVote(draft.boardId, filmId, "first-voter", true);
+    now = new Date("2026-09-21T10:00:00Z");
+    assert.equal(
+      getPublicFilmRound("default", undefined, store, now)?.status,
+      "awaiting",
+    );
+    now = new Date("2026-09-21T11:00:00Z");
+    assert.equal(
+      getPublicFilmRound("default", undefined, store, now)?.status,
+      "closed",
+    );
+    now = new Date("2026-09-22T21:59:00Z");
+    assert.deepEqual(getPublicFilmRound("default", undefined, store, now), {
+      status: "idle",
+    });
+    assert.equal(getPublicFilmHistory("default", store, now).length, 1);
   } finally {
     store.close();
   }

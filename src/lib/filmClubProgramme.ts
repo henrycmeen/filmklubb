@@ -56,7 +56,7 @@ export const filmClubActiveScreeningSchema = z.object({
 
 export const filmClubProgrammeSchema = z.object({
   name: z.string().trim().min(1),
-  activeScreening: filmClubActiveScreeningSchema,
+  activeScreening: filmClubActiveScreeningSchema.nullable().default(null),
   history: z.array(filmClubHistoryEntrySchema),
 });
 
@@ -125,7 +125,9 @@ const filmClubProgrammeConfig =
 
 const cloneProgramme = (programme: FilmClubProgramme): FilmClubProgramme => ({
   name: programme.name,
-  activeScreening: { ...programme.activeScreening },
+  activeScreening: programme.activeScreening
+    ? { ...programme.activeScreening }
+    : null,
   history: programme.history.map((entry) => ({ ...entry })),
 });
 
@@ -162,8 +164,19 @@ export const getFilmClubProgramme = (clubSlug?: string): FilmClubProgramme => {
   return programme ? cloneProgramme(programme) : getFallbackProgramme();
 };
 
-export const getActiveVoteBoardId = (clubSlug?: string): string => {
+export const getActiveVoteBoardId = (clubSlug?: string): string | null => {
   const canonicalClubId = resolveCanonicalClubId(clubSlug);
   const programme = getFilmClubProgramme(canonicalClubId);
-  return `${canonicalClubId}-${programme.activeScreening.id}`;
+  return programme.activeScreening
+    ? `${canonicalClubId}-${programme.activeScreening.id}`
+    : null;
 };
+
+/** Compatibility boards exist only for explicitly configured legacy elections. */
+export const getLegacyVoteBoardIds = (): string[] =>
+  Object.entries(filmClubProgrammeConfig.clubs).flatMap(
+    ([clubId, programme]) =>
+      programme.activeScreening
+        ? [clubId, `${clubId}-${programme.activeScreening.id}`]
+        : [],
+  );

@@ -19,8 +19,8 @@ import { selectRoundCandidates } from "@/lib/filmRoundCandidates";
 const identifier = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]*$/)
-  .min(1)
-  .max(64);
+  .min(1);
+const boardIdentifier = identifier.max(128);
 const instant = z.string().datetime({ offset: true });
 const command = z.discriminatedUnion("action", [
   z
@@ -29,7 +29,7 @@ const command = z.discriminatedUnion("action", [
       expectedRevision: z.number().int().nonnegative().nullable(),
       round: z
         .object({
-          screeningId: identifier,
+          screeningId: identifier.max(64),
           voteStartsAt: instant,
           voteEndsAt: instant,
           resultsAt: instant,
@@ -45,14 +45,14 @@ const command = z.discriminatedUnion("action", [
   z
     .object({
       action: z.literal("close"),
-      boardId: identifier,
+      boardId: boardIdentifier,
       expectedRevision: z.number().int().nonnegative(),
     })
     .strict(),
   z
     .object({
       action: z.literal("complete"),
-      boardId: identifier,
+      boardId: boardIdentifier,
       expectedRevision: z.number().int().nonnegative(),
     })
     .strict(),
@@ -96,12 +96,19 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       if (input.action === "save") {
         const { candidateIds, ...fields } = input.round;
         const boardId = getFilmRoundBoardId(clubId, fields.screeningId);
+        if (!boardIdentifier.safeParse(boardId).success)
+          return res.status(400).json({
+            error: {
+              message:
+                "Klubb-ID og runde-ID kan til sammen være høyst 127 tegn (128 med bindestreken).",
+            },
+          });
         const existing = store.getScheduledRound(boardId);
         // An unmanaged election is already public. It cannot be adopted as a
         // private draft: that would silently disable its public vote endpoints.
         if (
           !fields.published &&
-          boardId === getCurrentFilmRound(clubId).boardId
+          boardId === getCurrentFilmRound(clubId)?.boardId
         )
           return res.status(409).json({
             error: {
