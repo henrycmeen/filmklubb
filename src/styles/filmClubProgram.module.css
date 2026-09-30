@@ -139,12 +139,14 @@
 }
 
 .nextTvVideo {
-  height: 100%;
-  left: -38.89%;
+  /* Crop player chrome by a fixed amount at every TV size. */
+  height: calc(100% + 144px);
+  inset: auto;
+  left: 50%;
   max-width: none;
-  top: 0;
-  transform: scale(1.14);
-  width: 177.78%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(177.78% + 256px);
   z-index: 1;
 }
 
