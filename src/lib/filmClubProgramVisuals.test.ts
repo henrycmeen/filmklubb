@@ -187,3 +187,15 @@ void test("keeps trailer recovery on the TV without adding a visible manual butt
   assert.doesNotMatch(nextFilmTvSource, />\s*Spill trailer/);
   assert.doesNotMatch(stylesheet, /\.nextTvRetry\b/);
 });
+
+void test("failed YouTube playback shows static while only films without trailers show a cover", () => {
+  assert.match(nextFilmTvSource, /\{!displayed\.youtubeId \? \(/);
+  assert.doesNotMatch(
+    nextFilmTvSource,
+    /!displayed\.youtubeId \|\| usePosterFallback \?/,
+  );
+  assert.match(
+    nextFilmTvSource,
+    /usePosterFallback \|\| phase === "tuning" \|\| phase === "poweringOn"/,
+  );
+});
