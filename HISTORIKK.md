@@ -10,7 +10,11 @@ TV-utsnittet sentrerer en 16:9-spiller med 72 piksler utenfor øvre og nedre kan
 
 Eksisterende installasjoner tar også inn admin-/runde-/stemmetavlerettelsene fra oppføringen under. Den lokale klubbkonfigurasjonen, eldre billettsted og eventuelle egne sider må bevares; malens tomme programfil skal ikke erstatte en eksisterende klubb. Ingen databasemigrering eller endring av passord/stemmehemmelighet er nødvendig.
 
-Verifikasjon: 255 tester bestått; etter utsnittsjusteringen bestod de 12 berørte visuelle kontrollene. `pnpm check` består med 0 feil og 43 eksisterende advarsler. Produksjonsbygg med `/filmklubb` består. Uavhengig review fant ingen gjenværende blokkering etter at ventende retry ble kansellert ved autoplay-blokkering og brukerhandling. Publiseringsresultat føres inn etter livekontroll. Tilbakerulling gjelder kode og bygg, mens eksisterende produksjonsdata beholdes.
+Verifikasjon: 255 tester bestått; etter utsnittsjusteringen bestod de 12 berørte visuelle kontrollene. `pnpm check` består med 0 feil og 43 eksisterende advarsler. Produksjonsbygg med `/filmklubb` består. Uavhengig review fant ingen gjenværende blokkering etter at ventende retry ble kansellert ved autoplay-blokkering og brukerhandling. Publisert på Mac mini 30. september 2026. Live klubboppsett, eldre billettsted og egen Halloween-side ble bevart. Kodebyttet beholdt database og beskyttede filer identisk. Etter oppstart er stemmer, resultat-snapshot, runder, passord og stemmehemmelighet fortsatt uendret; ordinære lesekall oppdaterte bare stemmetavlens revision/updated_at og SQLite-sekvens.
+
+Livekontroll: aktiv Halloween-runde 29. oktober kl. 16 med 10 kandidater; klubb/alias, Halloween-side, historikk, admin og API svarte som forventet. Admin krever eksisterende passord, uten nytt passordoppsett. Arkivet viser fortsatt PlayTime og lagret resultat. Safari viste faktisk avspilling etter aktivering av TV-flaten, uten synlige kantkontroller. Safari kunne fortsatt kreve brukerhandling etter ny innlasting; dette er uttrykkelig håndtert med klikk/Enter/Space og er ikke en garanti om automatisk avspilling i alle nettleseroppsett.
+
+Full runtime-backup og separat konsistent SQLite-backup ble kontrollert med quick_check=ok. Installasjonens private driftsnotat beskriver eksakt tilbakeføring av kode og bygg uten å rulle tilbake nye stemmer. Tilbakerulling gjelder kode og bygg, mens eksisterende produksjonsdata beholdes.
 
 ## 30. september 2026 – gjenbrukbart filmklubbgrunnlag
 
