@@ -1,5 +1,17 @@
 # Historikk
 
+## 30. september 2026 – offisiell YouTube-spiller og fryst videobilde
+
+Arbeidsgren: `fix/trailer-player-state`. Første trailerrettelse over var ikke tilstrekkelig: brukeren meldte fortsatt cover/frys etter publisering. Den private meldings-/oppstartshåndteringen er derfor erstattet med YouTubes offisielle iframe-API, med én eid iframe, offentlig tilstand/tid/varighet og opprydding av spiller, tidsur og synlighetslyttere.
+
+Spilleren opprettes uten autoplay i URL-en. Etter `onReady` settes volum til null og mute bekreftes før avspilling forespørres. Retur til fane eller synlig skjermflate forsøker å gjenoppta samme spiller. Bare reelle API-/lastefeil gir avgrenset automatisk remontering; nettleserens autoplay-blokkering gir tilgjengelig klikk/Enter/Space på TV-flaten.
+
+En fryst videotid fornyer ikke lenger overvåkingens fremdriftsstempel. Cover-fallbacken fjernes heller ikke av en gjentatt «playing»-tilstand uten faktisk tidsprogresjon. Dette hindrer en endeløs veksling mellom tuning og cover når videobildet står stille. Manglende varighet alene hindrer ikke at en video med faktisk fremdrift vises.
+
+Iframe-en forblir synlig bak oppstarts-/støymasken, mens TV-utsnittet fortsatt beskjærer YouTubes kantkontroller. YouTube og nettleseren kan fortsatt blokkere avspilling eller vise egne overlegg; en slik blokkering skal gi en stabil, aktiverbar fallback.
+
+Verifikasjon: 265 tester bestått; `pnpm check` med 0 feil og 43 eksisterende advarsler; produksjonsbygg med `/filmklubb` bestått. Uavhengig review fant og fikk rettet fallback-løkken ved fryst «playing»-tilstand. Test dekker vedvarende fryst tid og faktisk gjenopptatt fremdrift. Separat nettleserprøve viste automatisk avspilling med stigende videotid. Native Safari-prøve på localhost meldte eksplisitt autoplay-blokkering; dette er en konkret begrensning, ikke dokumentasjon på automatisk avspilling i Safari. Livekontroll og driftsstatus føres i installasjonens driftsnotat.
+
 ## 30. september 2026 – stabil trailer og rettelser i eksisterende installasjon
 
 Arbeidsgren: `fix/live-rounds-trailer`. YouTube-spilleren får en avgrenset, gjentatt klar-signal-håndtering, slik at treg iframe-oppstart ikke mister forbindelsen. En avspillingsmelding under TV-oppstart starter nå stabilitetsmålingen; tidligere kunne videoen spille bak et cover som aldri forsvant.
