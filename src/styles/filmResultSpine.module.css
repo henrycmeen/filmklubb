@@ -35,7 +35,7 @@
   height: 100%;
   object-fit: cover;
   object-position: center 44%;
-  filter: saturate(0.8);
+  filter: var(--film-spine-image-filter, saturate(0.8));
 }
 .shade {
   position: absolute;
@@ -96,8 +96,8 @@
 }
 .plastic {
   mix-blend-mode: screen;
-  opacity: 0.92;
+  opacity: var(--film-spine-plastic-opacity, 0.92);
 }
 .scratches {
-  opacity: 0.4;
+  opacity: var(--film-spine-scratch-opacity, 0.4);
 }

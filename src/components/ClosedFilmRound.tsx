@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { NextScreeningClosed } from "@/components/NextScreeningClosed";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getFilmResultVariant } from "@/lib/filmResultVariant";
 import { createPortal } from "react-dom";
@@ -179,6 +180,16 @@ export const ClosedFilmRound = ({
       setDirectOpen(true);
     }
   }, [openDirectResult, hasTicket, snapshot.snapshotId]);
+
+  if (resultVariant === "announcement" && hasTicket && snapshot.ranking[0]) {
+    return (
+      <NextScreeningClosed
+        snapshot={snapshot}
+        archive={archive}
+        openResults={openDirectResult}
+      />
+    );
+  }
 
   return (
     <>
