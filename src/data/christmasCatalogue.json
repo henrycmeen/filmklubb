@@ -16,22 +16,6 @@
     "trailerYoutubeId": "IoYahD_xNR0"
   },
   {
-    "id": 14813,
-    "title": "Mickey's Christmas Carol",
-    "year": 1983,
-    "tmdbVoteAverage": 7.667,
-    "coverImage": "/VHS/program/vote-covers/156-mickey-s-christmas-carol.webp",
-    "trailerYoutubeId": "eCO4D7KTRtE"
-  },
-  {
-    "id": 508965,
-    "title": "Klaus",
-    "year": 2019,
-    "tmdbVoteAverage": 8.215,
-    "coverImage": "/VHS/program/vote-covers/157-klaus.webp",
-    "trailerYoutubeId": "taE3PwurhYM"
-  },
-  {
     "id": 70089,
     "title": "Comet in Moominland",
     "year": 1992,
@@ -48,14 +32,6 @@
     "trailerYoutubeId": null
   },
   {
-    "id": 671,
-    "title": "Harry Potter and the Philosopher's Stone",
-    "year": 2001,
-    "tmdbVoteAverage": 7.906,
-    "coverImage": "/VHS/program/vote-covers/160-harry-potter-and-the-philosopher-s-stone.webp",
-    "trailerYoutubeId": "l91Km49W9qI"
-  },
-  {
     "id": 13398,
     "title": "Tokyo Godfathers",
     "year": 2003,
@@ -70,30 +46,6 @@
     "tmdbVoteAverage": 7.492,
     "coverImage": "/VHS/program/vote-covers/162-a-grand-day-out.webp",
     "trailerYoutubeId": "ablYsAGtuSM"
-  },
-  {
-    "id": 13155,
-    "title": "Return to Oz",
-    "year": 1985,
-    "tmdbVoteAverage": 6.7,
-    "coverImage": "/VHS/program/vote-covers/163-return-to-oz.webp",
-    "trailerYoutubeId": "14EEGw_sdDQ"
-  },
-  {
-    "id": 271,
-    "title": "Ronia: The Robber's Daughter",
-    "year": 1984,
-    "tmdbVoteAverage": 7,
-    "coverImage": "/VHS/program/vote-covers/164-ronia-the-robber-s-daughter.webp",
-    "trailerYoutubeId": "iwZSoyHKjgY"
-  },
-  {
-    "id": 8871,
-    "title": "How the Grinch Stole Christmas",
-    "year": 2000,
-    "tmdbVoteAverage": 6.782,
-    "coverImage": "/VHS/program/vote-covers/165-how-the-grinch-stole-christmas.webp",
-    "trailerYoutubeId": "UnyPPS1Z-Vs"
   },
   {
     "id": 10386,
@@ -126,5 +78,53 @@
     "tmdbVoteAverage": 7.8,
     "coverImage": "/VHS/program/vote-covers/169-fanny-and-alexander.webp",
     "trailerYoutubeId": "UCXoXFdNa1o"
+  },
+  {
+    "id": 17962,
+    "title": "After Life",
+    "year": 1998,
+    "tmdbVoteAverage": 7.2,
+    "coverImage": "/VHS/program/vote-covers/170-after-life.webp",
+    "trailerYoutubeId": "f8K_YxtdzRo"
+  },
+  {
+    "id": 144,
+    "title": "Wings of Desire",
+    "year": 1987,
+    "tmdbVoteAverage": 7.8,
+    "coverImage": "/VHS/program/vote-covers/171-wings-of-desire.webp",
+    "trailerYoutubeId": "0iAzYofuItM"
+  },
+  {
+    "id": 340357,
+    "title": "April and the Extraordinary World",
+    "year": 2015,
+    "tmdbVoteAverage": 7.078,
+    "coverImage": "/VHS/program/vote-covers/172-april-and-the-extraordinary-world.webp",
+    "trailerYoutubeId": "TAFNUhxQKeQ"
+  },
+  {
+    "id": 41213,
+    "title": "The Fabulous Baron Munchausen",
+    "year": 1962,
+    "tmdbVoteAverage": 7.4,
+    "coverImage": "/VHS/program/vote-covers/173-the-fabulous-baron-munchausen.webp",
+    "trailerYoutubeId": "Na1h7ozW9VQ"
+  },
+  {
+    "id": 72214,
+    "title": "The Snow Queen",
+    "year": 1957,
+    "tmdbVoteAverage": 6.8,
+    "coverImage": "/VHS/program/vote-covers/174-the-snow-queen.webp",
+    "trailerYoutubeId": "brehkGE_jzE"
+  },
+  {
+    "id": 48395,
+    "title": "Rare Exports: A Christmas Tale",
+    "year": 2010,
+    "tmdbVoteAverage": 6.2,
+    "coverImage": "/VHS/program/vote-covers/175-rare-exports-a-christmas-tale.webp",
+    "trailerYoutubeId": "tuvq7XF35lQ"
   }
 ]

@@ -67,10 +67,10 @@ void test("includes the requested original horror films with covers and trailers
   );
 });
 
-void test("Christmas shortlist contains the sixteen requested films and existing artwork stays canonical", () => {
+void test("Christmas shortlist contains the curated sixteen films and existing artwork stays canonical", () => {
   const ids = [
-    10437, 9479, 14813, 508965, 70089, 492015, 671, 13398, 530, 13155, 271,
-    8871, 10386, 927, 68, 5961,
+    10437, 9479, 70089, 492015, 13398, 530, 10386, 927, 68, 5961,
+    17962, 144, 340357, 41213, 72214, 48395,
   ];
   assert.deepEqual(
     christmasFilmCatalogue.map((film) => film.id),

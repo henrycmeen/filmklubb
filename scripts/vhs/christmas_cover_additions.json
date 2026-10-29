@@ -78,5 +78,35 @@
     "tmdbId": 5961,
     "posterPath": "/q8jlA3Wc1Z987hNKRFA44g5OugC.jpg",
     "outputFile": "169-fanny-and-alexander.webp"
+  },
+  {
+    "tmdbId": 17962,
+    "posterPath": "/bs2M1hqAQl5LeAOPPRV4drwouZS.jpg",
+    "outputFile": "170-after-life.webp"
+  },
+  {
+    "tmdbId": 144,
+    "posterPath": "/iZQs2vUeCzvS1KfZJ6uYNCGJBBV.jpg",
+    "outputFile": "171-wings-of-desire.webp"
+  },
+  {
+    "tmdbId": 340357,
+    "posterPath": "/cenqAhHFJRGf08L8rgvHTlFrLuL.jpg",
+    "outputFile": "172-april-and-the-extraordinary-world.webp"
+  },
+  {
+    "tmdbId": 41213,
+    "posterPath": "/azAhyBd8netxD18VdYo7C4oUvbR.jpg",
+    "outputFile": "173-the-fabulous-baron-munchausen.webp"
+  },
+  {
+    "tmdbId": 72214,
+    "posterPath": "/ptCK2qAyGEmQBys3cImY6o6qAyp.jpg",
+    "outputFile": "174-the-snow-queen.webp"
+  },
+  {
+    "tmdbId": 48395,
+    "posterPath": "/jzaweEESl54ejxo3EE5uNL8lgTn.jpg",
+    "outputFile": "175-rare-exports-a-christmas-tale.webp"
   }
 ]
