@@ -150,15 +150,21 @@ export const ClosedFilmRound = ({
   archive?: ReactNode;
 }) => {
   const [resultVariant, setResultVariant] = useState(() =>
-    getFilmResultVariant(snapshot.scheduledAt),
+    getFilmResultVariant(snapshot.scheduledAt, Date.now(), snapshot.boardId),
   );
   useEffect(() => {
     const update = () =>
-      setResultVariant(getFilmResultVariant(snapshot.scheduledAt));
+      setResultVariant(
+        getFilmResultVariant(
+          snapshot.scheduledAt,
+          Date.now(),
+          snapshot.boardId,
+        ),
+      );
     update();
     const timer = window.setInterval(update, 30_000);
     return () => window.clearInterval(timer);
-  }, [snapshot.scheduledAt]);
+  }, [snapshot.scheduledAt, snapshot.boardId]);
   const [finaleOpen, setFinaleOpen] = useState(false);
   const [directOpen, setDirectOpen] = useState(() => openDirectResult);
   const [emptyResult, setEmptyResult] = useState(false);
