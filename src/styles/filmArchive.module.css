@@ -1,4 +1,7 @@
 .archive {
+  --film-spine-image-filter: saturate(1.45) contrast(1.18) brightness(1.12);
+  --film-spine-plastic-opacity: 0.58;
+  --film-spine-scratch-opacity: 0.32;
   margin-top: auto;
   display: flex;
   align-items: center;
