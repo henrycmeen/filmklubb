@@ -180,12 +180,15 @@ export function FilmArchiveShelf({
                             ) : (
                               <span>Ingen stemmer · {date}</span>
                             )}
-                            {date === "22.09.2026" ? (
+                            {date === "22.09.2026" ||
+                            snapshot.boardId === "na-halloween-2026" ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 className={styles.tape}
                                 src={withBasePath(
-                                  "/VHS/program/archive-tape-2026-09-22.png",
+                                  snapshot.boardId === "na-halloween-2026"
+                                    ? "/VHS/program/next-screening-tape-2026-10-29.png"
+                                    : "/VHS/program/archive-tape-2026-09-22.png",
                                 )}
                                 alt=""
                                 aria-hidden="true"
