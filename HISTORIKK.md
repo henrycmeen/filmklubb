@@ -81,3 +81,16 @@ Testdata og HTTP-prøveskript ligger separat i `.cache/template-smoke`; de er ik
 ## Trailer: skurring og start direkte på TV-en
 
 Når en YouTube-trailer ikke starter, blir blokkert eller slutter å gå fremover, viser TV-en skurring til brukeren klikker på den eller trykker Enter/Space. Ingen synlig knapp legges til. Klikket gjenopptar den eksisterende, dempede spilleren; ved en faktisk innlastingsfeil opprettes spilleren på nytt. Klikk under normal avspilling gjør ingenting, og filmer helt uten trailer beholder omslaget. Skurringen fjernes først etter klikk og bekreftet fremdrift i traileren. Dette overstyrer ikke nettleserens autoplay-policy.
+
+
+## 2026-10-28 — lokal prøve av neste visning
+
+Gren `preview/next-screening-vhs`: `/neste-visning-demo` viser Cure-trailer, neste visning 29. oktober kl. 16 i Wergelandshallen og en datert VHS-rygg som åpner den låste resultatlisten. PlayTime vises under tidligere visninger. Bruker frosne offentlige resultater, uten stemme-/admin-klient eller produksjonsdatabase. Ny transparent tapegrafikk er avledet fra originalen med bildegenerering. Farge, kontrast og mindre plastglans gjelder bare prøvesiden via CSS-variabler; delte komponenters standard er bevart.
+
+Kontrollert: `pnpm check` og `pnpm build`; 13 eksisterende visuelle kontrakttester; nettleser på 742px og emulert 390px, traileravspilling, klikk/Enter for resultater og bevart fokus. Ingen publisering, push eller produksjonskode endret. Lokal kjøring på Mac mini: `SKIP_ENV_VALIDATION=1 CLUB_DB_PATH=.cache/next-screening-preview.sqlite node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3046`. Åpne `/neste-visning-demo`; MacBook bruker SSH-videresending av port 3046.
+
+- Lokal forhåndsvisning: la til engelske tittellogoer for 11 Halloween-filmer fra TMDB med kildehenvisninger i cassette_logo_sources.json. Don't Look Up (1996) beholder lesbar tekst fordi bildekilden mangler engelsk logo. Velger lyse logovarianter på mørke rygger.
+
+- Lokal neste-visning-prøve: flyttet avsluttet-status, dato og sted over TV-en; beholdt klikkbar vinnerkassett rett under. Tidligere visninger starter nedenfor første skjermhøyde. Verifisert åpning/lukking av resultater i nettleser og mobilbredde uten horisontal overflow; pnpm check og pnpm build består. Ingen publisering.
+
+- Lokal blodeffekt forbedret etter lesende Claude Opus-råd: SVG med sammenhengende væskekant, avsnøring, akselererende dråper og glans. Fem strømmer på desktop, tre på mobil; redusert bevegelse fryser effekten. Verifisert i nettleser: resultater åpner/lukker, 390 px uten overflow, animasjon av ved reduced motion. pnpm check og pnpm build består. Kun lokal prøve.

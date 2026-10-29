@@ -33,6 +33,7 @@ interface FilmClubRoundFormProps {
   round: ScheduledFilmRound | null;
   catalogue: readonly FilmAdminCatalogueEntry[];
   defaultScreeningId: string;
+  defaultCandidateIds?: number[];
   screeningIdReadOnly?: boolean;
   readOnly?: boolean;
   freezeCandidates?: boolean;
@@ -173,6 +174,7 @@ export function FilmClubRoundForm({
   round,
   catalogue,
   defaultScreeningId,
+  defaultCandidateIds,
   screeningIdReadOnly = Boolean(round),
   readOnly = false,
   freezeCandidates = false,
@@ -184,7 +186,12 @@ export function FilmClubRoundForm({
   const sourceKey = roundSourceKey(round, defaultScreeningId);
   const sourceKeyRef = useRef(sourceKey);
   const [draft, setDraft] = useState<FormDraft>(() =>
-    toFormDraft(round, defaultScreeningId),
+    round
+      ? toFormDraft(round, defaultScreeningId)
+      : {
+          ...toFormDraft(round, defaultScreeningId),
+          candidateIds: defaultCandidateIds ?? [],
+        },
   );
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
@@ -194,11 +201,18 @@ export function FilmClubRoundForm({
   useEffect(() => {
     if (sourceKeyRef.current === sourceKey) return;
     sourceKeyRef.current = sourceKey;
-    setDraft(toFormDraft(round, defaultScreeningId));
+    setDraft(
+      round
+        ? toFormDraft(round, defaultScreeningId)
+        : {
+            ...toFormDraft(round, defaultScreeningId),
+            candidateIds: defaultCandidateIds ?? [],
+          },
+    );
     setDirty(false);
     setError(null);
     setQuery("");
-  }, [defaultScreeningId, round, sourceKey]);
+  }, [defaultScreeningId, round, sourceKey, defaultCandidateIds]);
 
   useEffect(() => {
     onDirtyChange?.(dirty);

@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { NextScreeningClosed } from "@/components/NextScreeningClosed";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getFilmResultVariant } from "@/lib/filmResultVariant";
 import { createPortal } from "react-dom";
@@ -149,15 +150,21 @@ export const ClosedFilmRound = ({
   archive?: ReactNode;
 }) => {
   const [resultVariant, setResultVariant] = useState(() =>
-    getFilmResultVariant(snapshot.scheduledAt),
+    getFilmResultVariant(snapshot.scheduledAt, Date.now(), snapshot.boardId),
   );
   useEffect(() => {
     const update = () =>
-      setResultVariant(getFilmResultVariant(snapshot.scheduledAt));
+      setResultVariant(
+        getFilmResultVariant(
+          snapshot.scheduledAt,
+          Date.now(),
+          snapshot.boardId,
+        ),
+      );
     update();
     const timer = window.setInterval(update, 30_000);
     return () => window.clearInterval(timer);
-  }, [snapshot.scheduledAt]);
+  }, [snapshot.scheduledAt, snapshot.boardId]);
   const [finaleOpen, setFinaleOpen] = useState(false);
   const [directOpen, setDirectOpen] = useState(() => openDirectResult);
   const [emptyResult, setEmptyResult] = useState(false);
@@ -179,6 +186,16 @@ export const ClosedFilmRound = ({
       setDirectOpen(true);
     }
   }, [openDirectResult, hasTicket, snapshot.snapshotId]);
+
+  if (resultVariant === "announcement" && hasTicket && snapshot.ranking[0]) {
+    return (
+      <NextScreeningClosed
+        snapshot={snapshot}
+        archive={archive}
+        openResults={openDirectResult}
+      />
+    );
+  }
 
   return (
     <>

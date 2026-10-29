@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { UndatedFilmCandidates } from "@/components/UndatedFilmCandidates";
 import { ClosedFilmRound } from "@/components/ClosedFilmRound";
 import { FilmArchiveShelf } from "@/components/FilmArchiveShelf";
 import { FilmVoteWall, type FilmVoteMovie } from "@/components/FilmVoteWall";
@@ -42,7 +43,7 @@ type RoundState =
       scheduledAt: string;
       venue?: string;
     }
-  | { status: "idle" }
+  | { status: "idle"; candidateIds?: number[] }
   | { status: "closed"; boardId: string; snapshot: FilmRoundSnapshot };
 
 const INITIAL_ROUND_STATE: RoundState = { status: "loading" };
@@ -166,7 +167,10 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
         } else {
           // A transition away from a closed round must clear the frozen
           // snapshot so an old result cannot remain visible on the next round.
-          updateRoundState({ status: "idle" });
+          updateRoundState({
+            status: "idle",
+            candidateIds: status.candidateIds,
+          });
         }
       } catch (error) {
         if (
@@ -257,8 +261,10 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
       : roundState.status === "awaiting"
         ? "Stemmingen er avsluttet"
         : roundState.status === "idle"
-          ? "Filmklubben"
-          : "Neste film";
+          ? "Neste filmklubb"
+          : boardId === "na-julespesial-2026"
+            ? "Julespesial"
+            : "Neste film";
 
   const historyHref = withBasePath(`/${clubSlug}/historikk`);
 
@@ -298,14 +304,18 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
           <section className={styles.nextSection} id="neste">
             <div className={styles.sectionLabel}>
               <span>{statusLabel}</span>
-              {scheduledAt ? <span>{formatFilmDate(scheduledAt)}</span> : null}
+              {scheduledAt ? (
+                <span>{formatFilmDate(scheduledAt)}</span>
+              ) : roundState.status === "idle" ? (
+                <span>Dato ikke annonsert</span>
+              ) : null}
             </div>
 
             <div className={styles.nextLayout}>
               <div className={styles.nextCase}>
                 {roundState.status === "scheduled" ||
                 roundState.status === "awaiting" ||
-                roundState.status === "idle" ? (
+                (roundState.status === "idle" && !leader) ? (
                   <StaticFilmTv />
                 ) : (
                   <NextFilmTv movie={leader} />
@@ -321,6 +331,11 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
               candidateIds={roundState.candidateIds}
               onLeaderChange={setLeader}
               onRoundClosed={handleRoundClosed}
+            />
+          ) : roundState.status === "idle" ? (
+            <UndatedFilmCandidates
+              candidateIds={roundState.candidateIds}
+              onPreview={setLeader}
             />
           ) : roundState.status === "loading" ? (
             <section

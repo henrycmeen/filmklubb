@@ -164,3 +164,42 @@ void test("manual close publishes immediately and preserves snapshot on retries"
     store.close();
   }
 });
+
+void test("undated candidates stay visible after manual completion without changing past results", () => {
+  let now = new Date("2026-09-10T10:00:00Z");
+  const store = createFilmVoteStore(":memory:", undefined, () => now);
+  try {
+    const round = store.saveScheduledRound(schedule(), null);
+    store.setVote(round.boardId, filmId, "existing-voter", true);
+    store.saveFilmPlanning("na", [filmId], null);
+    assert.equal(
+      getPublicFilmRound("na", undefined, store, now)?.status,
+      "open",
+    );
+    now = new Date("2026-09-22T15:00:00Z");
+    assert.equal(
+      getPublicFilmRound("na", undefined, store, now)?.status,
+      "closed",
+    );
+    const snapshot = store.getLockedRound(round.boardId)!;
+    const current = store.getScheduledRound(round.boardId)!;
+    store.completeScheduledRound(round.boardId, current.revision);
+    assert.deepEqual(getPublicFilmRound("na", undefined, store, now), {
+      status: "idle",
+      candidateIds: [filmId],
+    });
+    assert.deepEqual(
+      getPublicFilmHistory("na", store, now)[0]!.snapshot,
+      snapshot,
+    );
+    assert.equal(snapshot.stats.totalVotes, 1);
+    const plan = store.getFilmPlanning("na");
+    store.saveFilmPlanning("na", [], plan.revision);
+    assert.deepEqual(getPublicFilmRound("na", undefined, store, now), {
+      status: "idle",
+    });
+    assert.deepEqual(store.getLockedRound(round.boardId), snapshot);
+  } finally {
+    store.close();
+  }
+});

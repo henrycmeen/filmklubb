@@ -1,0 +1,206 @@
+.page {
+  --film-spine-image-filter: saturate(1.45) contrast(1.18) brightness(1.12);
+  --film-spine-plastic-opacity: 0.58;
+  --film-spine-scratch-opacity: 0.32;
+  padding: clamp(1rem, 3vh, 2.5rem) 0 4rem;
+}
+.shelf {
+  width: min(calc(100% - 3rem), 560px);
+  margin: 1.75rem auto 0;
+}
+.headingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+.headingRow h2 {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.headingRow p {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.65rem;
+  text-align: right;
+  line-height: 1.6;
+}
+.headingRow p span {
+  display: block;
+}
+.screening + .screening {
+  margin-top: 1.5rem;
+}
+.history {
+  margin-top: 0;
+  padding-top: 3rem;
+}
+.cassetteButton {
+  width: 100%;
+}
+.results {
+  scroll-margin-top: 1rem;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 420px) {
+  .shelf {
+    width: calc(100% - 2rem);
+  }
+  .headingRow {
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+  .headingRow h2 {
+    font-size: 0.65rem;
+  }
+  .headingRow p {
+    font-size: 0.6rem;
+  }
+}
+
+.screening[data-expanded="false"] ol > li {
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  border: 0;
+}
+.screening[data-expanded="false"] ol > li > span:first-child,
+.screening[data-expanded="false"] ol > li > span:last-child {
+  display: none;
+}
+
+.currentScreening {
+  min-height: calc(100svh - clamp(1rem, 3vh, 2.5rem));
+  padding-bottom: 3rem;
+}
+.statusRow {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.television {
+  width: min(calc(100% - 3rem), 544px);
+  margin: 0 auto;
+}
+.upcomingShelf {
+  margin-top: 1.25rem;
+}
+@media (max-width: 420px) {
+  .television {
+    width: calc(100% - 2rem);
+  }
+  .statusRow {
+    gap: 0.75rem;
+  }
+}
+
+.screening[data-upcoming="true"] ol > li:first-child {
+  margin-bottom: clamp(48px, 12vw, 80px);
+}
+.blood {
+  position: absolute;
+  left: 0;
+  top: calc(100% - 6px);
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image: linear-gradient(#000 62%, transparent 96%);
+}
+.bloodStem,
+.bloodBead {
+  transform-box: fill-box;
+  animation-duration: var(--blood-seconds);
+  animation-delay: var(--blood-delay);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+.bloodStem {
+  transform-origin: 50% 0;
+  animation-name: bloodStemFlow;
+}
+.bloodBead {
+  transform-origin: 50% 25%;
+  animation-name: bloodBeadFall;
+}
+@keyframes bloodStemFlow {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.4, 1);
+  }
+  68% {
+    transform: scaleY(1);
+  }
+  71% {
+    transform: scale(0.75, 1.06);
+    animation-timing-function: cubic-bezier(0.2, 1.5, 0.4, 1);
+  }
+  78% {
+    transform: scaleY(0.5);
+  }
+}
+@keyframes bloodBeadFall {
+  0%,
+  100% {
+    transform: translateY(calc(var(--blood-length) * -0.45)) scale(0.55);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  }
+  64% {
+    transform: translateY(0) scale(1.15);
+  }
+  71% {
+    transform: translateY(5px) scale(1.02, 1.38);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.5);
+  }
+  85% {
+    transform: translateY(116px) scale(0.82, 1.22);
+    opacity: 1;
+  }
+  85.1% {
+    transform: translateY(calc(var(--blood-length) * -0.45)) scale(0.3);
+    opacity: 0;
+  }
+}
+@media (max-width: 480px) {
+  .minorStream {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bloodStem,
+  .bloodBead {
+    animation: none;
+  }
+  .bloodStem {
+    transform: scaleY(0.65);
+  }
+  .bloodBead {
+    transform: translateY(calc(var(--blood-length) * -0.35));
+  }
+}
+
+.screening[data-upcoming="true"][data-expanded="true"] ol > li:first-child {
+  margin-bottom: 0;
+}
+.screening[data-expanded="true"] .blood {
+  mask-image: linear-gradient(#000 12%, transparent 28%);
+}
