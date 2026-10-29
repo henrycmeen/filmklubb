@@ -63,5 +63,20 @@
     "tmdbId": 10386,
     "posterPath": "/k1Cv5CHJvqGWK1xJDUJz8DojFEy.jpg",
     "outputFile": "166-the-iron-giant.webp"
+  },
+  {
+    "tmdbId": 927,
+    "posterPath": "/6m0F7fsXjQvUbCZrPWcJNrjvIui.jpg",
+    "outputFile": "167-gremlins.webp"
+  },
+  {
+    "tmdbId": 68,
+    "posterPath": "/2w09J0KUnVtJvqPYu8N63XjAyCR.jpg",
+    "outputFile": "168-brazil.webp"
+  },
+  {
+    "tmdbId": 5961,
+    "posterPath": "/q8jlA3Wc1Z987hNKRFA44g5OugC.jpg",
+    "outputFile": "169-fanny-and-alexander.webp"
   }
 ]

@@ -102,5 +102,29 @@
     "tmdbVoteAverage": 7.967,
     "coverImage": "/VHS/program/vote-covers/166-the-iron-giant.webp",
     "trailerYoutubeId": "2izFEWmzPdk"
+  },
+  {
+    "id": 927,
+    "title": "Gremlins",
+    "year": 1984,
+    "tmdbVoteAverage": 7.146,
+    "coverImage": "/VHS/program/vote-covers/167-gremlins.webp",
+    "trailerYoutubeId": "PXXZx6skXrw"
+  },
+  {
+    "id": 68,
+    "title": "Brazil",
+    "year": 1985,
+    "tmdbVoteAverage": 7.654,
+    "coverImage": "/VHS/program/vote-covers/168-brazil.webp",
+    "trailerYoutubeId": "A_7ATU9dslE"
+  },
+  {
+    "id": 5961,
+    "title": "Fanny and Alexander",
+    "year": 1982,
+    "tmdbVoteAverage": 7.8,
+    "coverImage": "/VHS/program/vote-covers/169-fanny-and-alexander.webp",
+    "trailerYoutubeId": "UCXoXFdNa1o"
   }
 ]
