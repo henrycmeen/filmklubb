@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { BloodDrips } from "@/components/BloodDrips";
 import { FilmResultSpine } from "@/components/FilmResultSpine";
 import { FilmRoundRanking } from "@/components/FilmRoundRanking";
 import { FilmRoundStats } from "@/components/FilmRoundStats";
@@ -171,6 +172,9 @@ export function FilmArchiveShelf({
                           }}
                         >
                           <span className={styles.cassette}>
+                            {snapshot.boardId === "na-halloween-2026" && (
+                              <BloodDrips />
+                            )}
                             {winner ? (
                               <FilmResultSpine film={winner} />
                             ) : (

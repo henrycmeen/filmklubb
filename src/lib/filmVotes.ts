@@ -14,6 +14,8 @@ import {
 } from "@/lib/filmRound";
 import {
   filmScheduleInputSchema,
+  filmPlanningSchema,
+  type FilmPlanning,
   scheduledFilmRoundSchema,
   type FilmScheduleInput,
   type ScheduledFilmRound,
@@ -164,6 +166,12 @@ export interface FilmVoteStore {
     catalogueFilmIds: number[],
     tieBreakScores?: ReadonlyMap<number, number>,
   ): FilmVoteResults;
+  getFilmPlanning(clubId: string): FilmPlanning;
+  saveFilmPlanning(
+    clubId: string,
+    candidateIds: number[],
+    expectedRevision: number | null,
+  ): FilmPlanning;
   listScheduledRounds(clubId: string): ScheduledFilmRound[];
   getScheduledRound(boardId: string): ScheduledFilmRound | null;
   saveScheduledRound(
@@ -237,6 +245,9 @@ const initializeDatabase = (database: DatabaseSync): void => {
     CREATE INDEX IF NOT EXISTS film_vote_round_snapshots_screening_idx
       ON film_vote_round_snapshots (club_id, screening_id);
 
+    CREATE TABLE IF NOT EXISTS film_club_planning (
+      club_id TEXT PRIMARY KEY, candidate_ids_json TEXT NOT NULL, revision INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS film_rounds (
       board_id TEXT PRIMARY KEY,
       club_id TEXT NOT NULL,
@@ -547,8 +558,14 @@ export const createFilmVoteStore = (
     first: FilmRoundLockMetadata,
     second: FilmRoundLockMetadata,
   ): boolean =>
-    canonicalJson({ ...first, scheduledAt: new Date(first.scheduledAt).toISOString() }) ===
-    canonicalJson({ ...second, scheduledAt: new Date(second.scheduledAt).toISOString() });
+    canonicalJson({
+      ...first,
+      scheduledAt: new Date(first.scheduledAt).toISOString(),
+    }) ===
+    canonicalJson({
+      ...second,
+      scheduledAt: new Date(second.scheduledAt).toISOString(),
+    });
 
   const assertBoardIdentity = (input: FilmScheduleInput): void => {
     if (input.boardId !== `${input.clubId}-${input.screeningId}`) {
@@ -576,7 +593,7 @@ export const createFilmVoteStore = (
         `SELECT
            board_id,
            vote_starts_at,
-           display_until
+           COALESCE(completed_at, display_until) AS display_until
          FROM film_rounds
          WHERE club_id = ? AND published = 1 AND board_id <> ?`,
       )
@@ -1159,7 +1176,14 @@ export const createFilmVoteStore = (
           assertLegacyVotesFitMetadata(input.boardId, input.metadata);
         }
         assertNoPublishedScheduleOverlap(input);
-        return insertScheduledRound(input, 0, null);
+        const saved = insertScheduledRound(input, 0, null);
+        if (input.published)
+          database
+            .prepare(
+              "UPDATE film_club_planning SET candidate_ids_json = ?, revision = revision + 1 WHERE club_id = ?",
+            )
+            .run("[]", input.clubId);
+        return saved;
       }
 
       const existing = parseScheduleRow(existingRow);
@@ -1251,7 +1275,14 @@ export const createFilmVoteStore = (
       }
 
       assertNoPublishedScheduleOverlap(input);
-      return updateScheduledRound(input, existing.revision + 1, null);
+      const saved = updateScheduledRound(input, existing.revision + 1, null);
+      if (input.published && !existing.published)
+        database
+          .prepare(
+            "UPDATE film_club_planning SET candidate_ids_json = ?, revision = revision + 1 WHERE club_id = ?",
+          )
+          .run("[]", input.clubId);
+      return saved;
     });
   };
 
@@ -1426,6 +1457,51 @@ export const createFilmVoteStore = (
     }
   };
 
+  const getFilmPlanning = (clubId: string): FilmPlanning => {
+    const row = database
+      .prepare(
+        "SELECT candidate_ids_json, revision FROM film_club_planning WHERE club_id = ?",
+      )
+      .get(clubId) as
+      | { candidate_ids_json: string; revision: number }
+      | undefined;
+    return row
+      ? filmPlanningSchema.parse({
+          candidateIds: JSON.parse(row.candidate_ids_json) as unknown,
+          revision: row.revision,
+        })
+      : { candidateIds: [], revision: null };
+  };
+  const saveFilmPlanning = (
+    clubId: string,
+    candidateIds: number[],
+    expectedRevision: number | null,
+  ): FilmPlanning => {
+    const input = filmPlanningSchema.parse({
+      candidateIds,
+      revision: expectedRevision,
+    });
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(clubId))
+      throw new Error("Invalid club ID");
+    return runInTransaction(database, () => {
+      const current = getFilmPlanning(clubId);
+      if (current.revision !== expectedRevision)
+        throw new FilmScheduleRevisionConflictError(
+          expectedRevision,
+          current.revision ?? -1,
+        );
+      const next = {
+        candidateIds: input.candidateIds,
+        revision: (current.revision ?? -1) + 1,
+      };
+      database
+        .prepare(
+          "INSERT INTO film_club_planning (club_id, candidate_ids_json, revision) VALUES (?, ?, ?) ON CONFLICT(club_id) DO UPDATE SET candidate_ids_json=excluded.candidate_ids_json, revision=excluded.revision",
+        )
+        .run(clubId, JSON.stringify(next.candidateIds), next.revision);
+      return next;
+    });
+  };
   const listScheduledRounds = (clubId: string): ScheduledFilmRound[] => {
     try {
       return runInReadTransaction(database, () => {
@@ -1475,6 +1551,8 @@ export const createFilmVoteStore = (
     getScheduledRound,
 
     listScheduledRounds,
+    getFilmPlanning,
+    saveFilmPlanning,
 
     getSnapshot(boardId, voterKey, catalogueFilmIds, tieBreakScores) {
       return runInReadTransaction(database, () => {

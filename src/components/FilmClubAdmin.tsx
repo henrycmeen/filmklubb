@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { filmPlanningSchema, type FilmPlanning } from "@/lib/filmSchedule";
+import { FilmPlanningForm } from "@/components/FilmPlanningForm";
 import type { ScheduledFilmRound } from "@/lib/filmSchedule";
 import { withBasePath } from "@/lib/basePath";
 import { formatOsloDateTime } from "@/lib/filmAdminTime";
@@ -27,6 +29,7 @@ interface FilmClubAdminCurrentPointer {
 
 interface FilmClubAdminResponse {
   rounds: ScheduledFilmRound[];
+  planning: FilmPlanning;
   catalogue: FilmAdminCatalogueEntry[];
   current: FilmClubAdminCurrentPointer | null;
 }
@@ -41,6 +44,7 @@ type AdminStatus = "loading" | "ready" | "error";
 type SessionStatus = "loading" | "login" | "ready" | "error";
 
 type AdminAction =
+  | { action: "plan"; candidateIds: number[]; expectedRevision: number | null }
   | {
       action: "save";
       expectedRevision: number | null;
@@ -117,6 +121,9 @@ const parseAdminResponse = (value: unknown): FilmClubAdminResponse => {
 
   return {
     rounds: value.rounds as ScheduledFilmRound[],
+    planning: filmPlanningSchema.parse(
+      value.planning ?? { candidateIds: [], revision: null },
+    ),
     catalogue,
     current,
   };
@@ -453,9 +460,7 @@ const LoginPanel = ({
           <div>
             <p className={styles.eyebrow}>Filmklubben / administrasjon</p>
             <h1>{setup ? "Sett opp tilgang." : "Logg inn."}</h1>
-            <p className={styles.clubLine}>
-              Administrasjon for {clubSlug}.
-            </p>
+            <p className={styles.clubLine}>Administrasjon for {clubSlug}.</p>
           </div>
           <span className={styles.localMark}>ADMIN</span>
         </header>
@@ -847,12 +852,31 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
         ) : null}
         {programme ? (
           selection === null ? (
-            <FilmClubEventList
-              rounds={programme.rounds}
-              now={now}
-              onOpen={openSelection}
-              onNew={() => openSelection("new")}
-            />
+            <>
+              <FilmPlanningForm
+                key={`plan:${programme.planning.revision ?? "empty"}`}
+                planning={programme.planning}
+                catalogue={programme.catalogue}
+                disabled={busyAction !== null}
+                onDirtyChange={setDirty}
+                onSave={async (candidateIds) => {
+                  await performAction(
+                    {
+                      action: "plan",
+                      candidateIds,
+                      expectedRevision: programme.planning.revision,
+                    },
+                    "Filmutvalget er lagret. Dato ikke annonsert.",
+                  );
+                }}
+              />
+              <FilmClubEventList
+                rounds={programme.rounds}
+                now={now}
+                onOpen={openSelection}
+                onNew={() => openSelection("new")}
+              />
+            </>
           ) : (
             <>
               <button
@@ -897,12 +921,15 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
                     defaultScreeningId={
                       selectedRound?.screeningId ?? nextDefaultScreeningId
                     }
+                    defaultCandidateIds={programme.planning.candidateIds}
                     screeningIdReadOnly={Boolean(selectedRound)}
                     freezeCandidates={
                       selectedRound ? isRoundClosed(selectedRound, now) : false
                     }
                     restrictCandidates={
-                      selectedRound ? isVotingStarted(selectedRound, now) : false
+                      selectedRound
+                        ? isVotingStarted(selectedRound, now)
+                        : false
                     }
                     onDirtyChange={setDirty}
                     onSave={async (round) => {

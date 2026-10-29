@@ -76,6 +76,7 @@ const awaitingRoundSchema = z.object({
 
 const idleRoundSchema = z.object({
   status: z.literal("idle"),
+  candidateIds: z.array(z.number().int().positive()).max(200).optional(),
 });
 
 const closedRoundSchema = z.object({

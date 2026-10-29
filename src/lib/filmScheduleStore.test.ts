@@ -415,3 +415,75 @@ void test("completion requires an immutable close and the screening time", async
     completed,
   );
 });
+
+void test("undated planning persists, isolates clubs and rejects stale saves", async () => {
+  const { directory, store } = await createStore(
+    () => new Date("2026-08-01T00:00:00Z"),
+  );
+  assert.deepEqual(store.getFilmPlanning("na"), {
+    candidateIds: [],
+    revision: null,
+  });
+  const planning = store.saveFilmPlanning("na", [10, 20], null);
+  assert.deepEqual(store.getFilmPlanning("default"), {
+    candidateIds: [],
+    revision: null,
+  });
+  assert.throws(
+    () => store.saveFilmPlanning("na", [], null),
+    FilmScheduleRevisionConflictError,
+  );
+  assert.throws(() =>
+    store.saveFilmPlanning("na", [10, 10], planning.revision),
+  );
+  const second = createFilmVoteStore(path.join(directory, "votes.sqlite"));
+  openStores.push(second);
+  assert.deepEqual(second.getFilmPlanning("na"), planning);
+  const cleared = second.saveFilmPlanning("na", [], planning.revision);
+  assert.deepEqual(store.getFilmPlanning("na"), cleared);
+});
+
+void test("publishing consumes the undated shortlist while saving a draft preserves it", async () => {
+  const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
+  const planning = store.saveFilmPlanning("default", [10, 20], null);
+  const draft = store.saveScheduledRound(inputFor({ published: false }), null);
+  assert.deepEqual(store.getFilmPlanning("default"), planning);
+  store.saveScheduledRound({ ...inputFor(), published: true }, draft.revision);
+  assert.deepEqual(store.getFilmPlanning("default").candidateIds, []);
+  assert.throws(
+    () => store.saveFilmPlanning("default", [10], planning.revision),
+    FilmScheduleRevisionConflictError,
+  );
+});
+
+void test("the next vote can start as soon as a screening is completed, preserving historical overlap protection", async () => {
+  let now = new Date("2026-09-21T09:00:00Z");
+  const { store } = await createStore(() => now);
+  const previous = store.saveScheduledRound(inputFor(), null);
+  now = new Date("2026-09-21T13:30:00Z");
+  store.finalizeDueRounds("default");
+  const snapshot = store.getLockedRound(previous.boardId);
+  const completed = store.completeScheduledRound(
+    previous.boardId,
+    store.getScheduledRound(previous.boardId)!.revision,
+  );
+  const next = inputFor({
+    screeningId: "next",
+    voteStartsAt: now.toISOString(),
+    voteEndsAt: "2026-10-01T10:00:00Z",
+    resultsAt: "2026-10-01T11:00:00Z",
+    scheduledAt: "2026-10-02T16:00:00Z",
+    displayUntil: "2026-10-02T23:59:00Z",
+  });
+  assert.throws(
+    () =>
+      store.saveScheduledRound(
+        { ...next, voteStartsAt: "2026-09-21T13:29:59Z" },
+        null,
+      ),
+    FilmRoundScheduleConflictError,
+  );
+  store.saveScheduledRound(next, null);
+  assert.deepEqual(store.getLockedRound(previous.boardId), snapshot);
+  assert.ok(completed.completedAt);
+});

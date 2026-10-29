@@ -662,12 +662,14 @@
 }
 
 /* Halfway pose hints at either opening or closing on the next interaction. */
-.voteFilm[data-case-open]:not([data-suppress-preview="true"]):focus-visible .voteCaseCover {
+.voteFilm[data-case-open]:not([data-suppress-preview="true"]):focus-visible
+  .voteCaseCover {
   transform: rotateY(-32deg);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .voteFilm[data-case-open]:not([data-suppress-preview="true"]):hover .voteCaseCover {
+  .voteFilm[data-case-open]:not([data-suppress-preview="true"]):hover
+    .voteCaseCover {
     transform: rotateY(-32deg);
   }
 }
@@ -727,4 +729,17 @@
   .nextTvPowerOffFlash {
     display: none;
   }
+}
+
+.planningShelf {
+  padding: 0 clamp(0.8rem, 2vw, 2rem);
+  width: 100%;
+  margin-top: 28px;
+  min-height: 100px;
+}
+.planningEmpty {
+  color: #8b8b87;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  margin: 24px 0 0;
 }

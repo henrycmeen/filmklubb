@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import legacyCatalogue from "@/data/filmVoteCatalogue.json";
 import {
+  christmasFilmCatalogue,
   combinedFilmCatalogue,
   halloweenFilmCatalogue,
   legacyFilmCatalogue,
@@ -28,11 +29,13 @@ void test("merges the expanded Halloween catalogue by identity without duplicate
   );
   assert.equal(
     combinedFilmCatalogue.length,
-    legacyFilmCatalogue.length +
-      halloweenFilmCatalogue.filter(
-        (film) =>
-          !legacyFilmCatalogue.some((candidate) => candidate.id === film.id),
-      ).length,
+    new Set(
+      [
+        ...legacyFilmCatalogue,
+        ...halloweenFilmCatalogue,
+        ...christmasFilmCatalogue,
+      ].map((film) => film.id),
+    ).size,
   );
 
   for (const film of halloweenFilmCatalogue) {
@@ -47,11 +50,45 @@ void test("merges the expanded Halloween catalogue by identity without duplicate
 });
 
 void test("includes the requested original horror films with covers and trailers", () => {
-  for (const [id, year] of [[16372, 1961], [25623, 1977], [16307, 1973], [36095, 1997]]) {
+  for (const [id, year] of [
+    [16372, 1961],
+    [25623, 1977],
+    [16307, 1973],
+    [36095, 1997],
+  ]) {
     const film = halloweenFilmCatalogue.find((entry) => entry.id === id);
     assert.equal(film?.year, year);
     assert.ok(film?.coverImage);
     assert.match(film?.trailerYoutubeId ?? "", /^[A-Za-z0-9_-]{11}$/);
   }
-  assert.match(halloweenFilmCatalogue.find((film) => film.id === 58405)!.coverImage, /dont-look-up-english/);
+  assert.match(
+    halloweenFilmCatalogue.find((film) => film.id === 58405)!.coverImage,
+    /dont-look-up-english/,
+  );
+});
+
+void test("Christmas shortlist contains the thirteen requested films and existing artwork stays canonical", () => {
+  const ids = [
+    10437, 9479, 14813, 508965, 70089, 492015, 671, 13398, 530, 13155, 271,
+    8871, 10386,
+  ];
+  assert.deepEqual(
+    christmasFilmCatalogue.map((film) => film.id),
+    ids,
+  );
+  assert.equal(
+    christmasFilmCatalogue.find((film) => film.id === 530)!.year,
+    1989,
+  );
+  for (const film of christmasFilmCatalogue) {
+    assert.ok(film.coverImage);
+    const expected =
+      legacyFilmCatalogue.find((item) => item.id === film.id) ??
+      halloweenFilmCatalogue.find((item) => item.id === film.id) ??
+      film;
+    assert.equal(
+      combinedFilmCatalogue.find((item) => item.id === film.id),
+      expected,
+    );
+  }
 });
