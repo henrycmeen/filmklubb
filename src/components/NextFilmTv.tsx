@@ -163,6 +163,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   const autoplayBlockedRef = useRef(false);
   const manualPlaybackRequestedRef = useRef(false);
   const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   const setTvPhase = useCallback((nextPhase: TvPhase) => {
     phaseRef.current = nextPhase;
@@ -276,6 +277,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     manualPlaybackRequestedRef.current = false;
     retryableFailureRef.current = false;
     autoplayBlockedRef.current = false;
+    setAutoplayBlocked(false);
     setNeedsPlaybackGesture(false);
   }, [displayed.movieId, displayed.youtubeId]);
 
@@ -471,6 +473,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
 
   const handleTrailerBlocked = useCallback(() => {
     autoplayBlockedRef.current = true;
+    setAutoplayBlocked(true);
     retryableFailureRef.current = false;
     setNeedsPlaybackGesture(true);
     revealPosterFallback();
@@ -493,11 +496,13 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
               ? "buffering"
               : null;
 
+      // A click on a blocked player reaches YouTube directly, not this page.
+      // Playback can then only advance after that click or a browser change.
       const canRecoverPoster = shouldRecoverYoutubePoster(
         sample.state,
         lastPlayerSampleTime.current,
         sample.currentTime,
-        manualPlaybackRequestedRef.current,
+        manualPlaybackRequestedRef.current || autoplayBlockedRef.current,
       );
       // This history survives poster fallback and candidate resets so a cached
       // PLAYING state cannot turn a frozen frame into another tuning cycle.
@@ -506,6 +511,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         clearRevealTimer();
         posterFallbackRef.current = false;
         autoplayBlockedRef.current = false;
+        setAutoplayBlocked(false);
         retryableFailureRef.current = false;
         setNeedsPlaybackGesture(false);
         setUsePosterFallback(false);
@@ -652,7 +658,6 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     )
       return;
     manualPlaybackRequestedRef.current = true;
-    autoplayBlockedRef.current = false;
     if (retryableFailureRef.current) {
       retryableFailureRef.current = false;
       retryTrailerPlayback();
@@ -708,6 +713,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
               youtubeId={displayed.youtubeId}
               title={displayed.title}
               hidden={usePosterFallback}
+              acceptsPointer={autoplayBlocked}
               onSample={handleYoutubeSample}
               onBlocked={handleTrailerBlocked}
               onError={handleTrailerError}
@@ -741,7 +747,12 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         {phase === "poweringOff" ? (
           <span className={styles.nextTvPowerOffFlash} aria-hidden="true" />
         ) : null}
-        <span className={styles.nextTvShield} aria-hidden="true" />
+        <span
+          className={`${styles.nextTvShield} ${
+            autoplayBlocked ? styles.nextTvShieldPassThrough : ""
+          }`}
+          aria-hidden="true"
+        />
         <span className={styles.nextTvGlow} aria-hidden="true" />
       </div>
     </div>

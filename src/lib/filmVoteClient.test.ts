@@ -347,3 +347,20 @@ void test("closes a removed vote immediately without a sticky hover preview", ()
     suppressPreview: false,
   });
 });
+
+void test("accepts the full 128-character board IDs supported by the vote API", () => {
+  for (const length of [65, 128, 129]) {
+    const boardId = `club-${"r".repeat(length - 5)}`;
+    const parsed = parseFilmVoteSnapshot(
+      {
+        boardId,
+        ranking: [{ filmId: 10, votes: 1 }],
+        revision: 1,
+        votedFilmIds: [10],
+      },
+      boardId,
+      new Set([10]),
+    );
+    assert.equal(parsed?.boardId ?? null, length <= 128 ? boardId : null);
+  }
+});

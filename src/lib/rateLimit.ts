@@ -1,3 +1,4 @@
+import ipaddr from 'ipaddr.js';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface RateLimitEntry {
@@ -7,6 +8,7 @@ interface RateLimitEntry {
 
 interface RateLimitStore {
   entries: Map<string, RateLimitEntry>;
+  lastSweepAtMs: number;
 }
 
 export interface RateLimitOptions {
@@ -23,22 +25,38 @@ interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+const MAX_IDENTIFIERS_PER_STORE = 10_000;
 const storesByKey = new Map<string, RateLimitStore>();
 
 const clampInt = (value: number, min: number): number =>
   Math.max(min, Math.floor(value));
 
+const normalizeIp = (value: string): string | null => {
+  try {
+    return ipaddr.process(value.trim()).toString();
+  } catch {
+    return null;
+  }
+};
+
 const getClientIp = (req: NextApiRequest): string => {
-  const xForwardedFor = req.headers['x-forwarded-for'];
-  if (typeof xForwardedFor === 'string' && xForwardedFor.trim().length > 0) {
-    return xForwardedFor.split(',')[0]?.trim() ?? 'unknown';
-  }
+  const remote = normalizeIp(req.socket.remoteAddress ?? '') ?? 'unknown';
+  // Only explicitly configured proxy peers may supply a forwarding chain.
+  const trusted = new Set((process.env.FILMKLUBB_TRUSTED_PROXIES ?? '')
+    .split(',').map(normalizeIp).filter((ip): ip is string => ip !== null));
+  if (!trusted.has(remote)) return remote;
 
-  if (Array.isArray(xForwardedFor) && xForwardedFor.length > 0) {
-    return xForwardedFor[0]?.trim() ?? 'unknown';
-  }
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded !== 'string' || forwarded.length > 4096) return remote;
+  const chain = forwarded.split(',').map(normalizeIp);
+  if (chain.length > 32 || chain.some(ip => ip === null)) return remote;
 
-  return req.socket.remoteAddress ?? 'unknown';
+  let client = remote;
+  // Walk from the socket towards the client; ignore attacker-supplied prefixes.
+  for (let index = chain.length - 1; index >= 0 && trusted.has(client); index--) {
+    client = chain[index]!;
+  }
+  return client;
 };
 
 const getStore = (key: string): RateLimitStore => {
@@ -47,7 +65,7 @@ const getStore = (key: string): RateLimitStore => {
     return existing;
   }
 
-  const created: RateLimitStore = { entries: new Map() };
+  const created: RateLimitStore = { entries: new Map(), lastSweepAtMs: 0 };
   storesByKey.set(key, created);
   return created;
 };
@@ -60,7 +78,21 @@ const evaluateRateLimit = (
   const maxRequests = clampInt(options.maxRequests, 1);
   const windowMs = clampInt(options.windowMs, 1_000);
   const store = getStore(options.key);
+  if (now - store.lastSweepAtMs >= 30_000 || store.entries.size >= MAX_IDENTIFIERS_PER_STORE) {
+    for (const [key, entry] of store.entries) {
+      if (entry.resetAtMs <= now) store.entries.delete(key);
+    }
+    store.lastSweepAtMs = now;
+  }
   const existing = store.entries.get(identifier);
+  if (!existing && store.entries.size >= MAX_IDENTIFIERS_PER_STORE) {
+    // Fail closed rather than evicting active limits or growing without bound.
+    return {
+      allowed: false, limit: maxRequests, remaining: 0,
+      resetAtMs: now + windowMs,
+      retryAfterSeconds: Math.max(1, Math.ceil(windowMs / 1000)),
+    };
+  }
 
   if (!existing || existing.resetAtMs <= now) {
     const resetAtMs = now + windowMs;

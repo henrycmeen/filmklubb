@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import type { NextApiRequest } from "next";
 import {
+  getOrCreateVoterSecret,
   createDeviceIdentity,
   createVoterKey,
   DEVICE_COOKIE_NAME,
@@ -133,4 +136,29 @@ void test("serializes a host-only long-lived cookie for the configured app path"
   });
   assert.match(localCookie, /; Path=\//);
   assert.equal(localCookie.includes("; Secure"), false);
+});
+
+
+void test("retries identity initialization after a transient file failure", async () => {
+  await fs.mkdir(".cache", { recursive: true });
+  const directory = await fs.mkdtemp(path.resolve(".cache/voter-retry-"));
+  const secretPath = path.join(directory, "test-secret");
+  const previousPath = process.env.FILM_VOTE_SECRET_PATH;
+  process.env.FILM_VOTE_SECRET_PATH = secretPath;
+  try {
+    // A recoverable invalid file must not poison all later vote requests.
+    await fs.writeFile(secretPath, Buffer.alloc(1));
+    await assert.rejects(getOrCreateVoterSecret(), /secret file is invalid/);
+    const expectedSecret = Buffer.alloc(32, 9);
+    await fs.writeFile(secretPath, expectedSecret);
+    const [first, second] = await Promise.all([
+      getOrCreateVoterSecret(), getOrCreateVoterSecret(),
+    ]);
+    assert.deepEqual(first, expectedSecret);
+    assert.deepEqual(second, expectedSecret);
+  } finally {
+    if (previousPath === undefined) delete process.env.FILM_VOTE_SECRET_PATH;
+    else process.env.FILM_VOTE_SECRET_PATH = previousPath;
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 });

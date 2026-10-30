@@ -58,6 +58,8 @@ export const filmClubProgrammeSchema = z.object({
   name: z.string().trim().min(1),
   activeScreening: filmClubActiveScreeningSchema.nullable().default(null),
   history: z.array(filmClubHistoryEntrySchema),
+  /** Ticket venue for configured legacy screenings; admin rounds set their own. */
+  ticketVenue: z.string().trim().min(1).optional(),
 });
 
 export const filmClubProgrammeConfigSchema = z
@@ -125,6 +127,7 @@ const filmClubProgrammeConfig =
 
 const cloneProgramme = (programme: FilmClubProgramme): FilmClubProgramme => ({
   name: programme.name,
+  ...(programme.ticketVenue ? { ticketVenue: programme.ticketVenue } : {}),
   activeScreening: programme.activeScreening
     ? { ...programme.activeScreening }
     : null,

@@ -487,3 +487,25 @@ void test("the next vote can start as soon as a screening is completed, preservi
   assert.deepEqual(store.getLockedRound(previous.boardId), snapshot);
   assert.ok(completed.completedAt);
 });
+
+void test("an expired published round cannot reopen before a reader finalizes it", () => {
+  let now = new Date("2026-09-21T10:30:00Z");
+  const store = createFilmVoteStore(":memory:", undefined, () => now);
+  try {
+    const input = inputFor();
+    const saved = store.saveScheduledRound(input, null);
+    store.setVote(input.boardId, 10, "test-voter", true);
+    now = new Date(input.voteEndsAt);
+    assert.throws(
+      () => store.saveScheduledRound({
+        ...input, voteEndsAt: "2026-09-21T11:30:00Z",
+      }, saved.revision),
+      FilmRoundScheduleNotEditableError,
+    );
+    assert.equal(store.getScheduledRound(input.boardId)!.voteEndsAt, input.voteEndsAt);
+    assert.throws(() => store.setVote(input.boardId, 20, "late-voter", true), FilmRoundClosedError);
+    assert.equal(store.getLockedRound(input.boardId)!.stats.totalVotes, 1);
+  } finally {
+    store.close();
+  }
+});
