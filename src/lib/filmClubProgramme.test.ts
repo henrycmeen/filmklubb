@@ -53,6 +53,22 @@ void test("preserves explicit legacy screening metadata and validates aliases", 
   );
 });
 
+void test("an installation may name the venue for its legacy screening tickets", () => {
+  const config = filmClubProgrammeConfigSchema.parse({
+    clubs: { default: { ...legacyProgramme, ticketVenue: " Kinosalen " } },
+    aliases: {},
+  });
+  assert.equal(config.clubs.default!.ticketVenue, "Kinosalen");
+  assert.equal(
+    filmClubProgrammeConfigSchema.safeParse({
+      clubs: { default: { ...legacyProgramme, ticketVenue: " " } },
+      aliases: {},
+    }).success,
+    false,
+  );
+  assert.equal(getFilmClubProgramme("default").ticketVenue, undefined);
+});
+
 void test("fresh template and unknown namespaces have no legacy election", () => {
   assert.equal(getFilmClubProgramme("default").activeScreening, null);
   assert.equal(getActiveVoteBoardId("default"), null);

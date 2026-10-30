@@ -64,6 +64,9 @@ yarn-error.log*
 data/club/.film-vote-secret
 data/club/admin-auth.json
 
+# club installation programme (clubs, aliases, venue); see docs/self-hosting.md
+/data/club/programme.json
+
 # vercel
 .vercel
 

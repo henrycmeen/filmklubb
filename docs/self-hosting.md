@@ -4,17 +4,20 @@ Bruk Node.js 24 og pnpm 10. Appen krever en Node-server og skrivbar lagring; sta
 
 ## Miljø og varige filer
 
-| Variabel                    | Standard / bruk                                              |
-| --------------------------- | ------------------------------------------------------------ |
-| `TMDB_API_KEY`              | Valgfri egen nøkkel for filmsøk og nye bilder                |
-| `CLUB_DB_PATH`              | `data/club/filmklubb.sqlite`; stemmer, planer og snapshots   |
-| `FILM_VOTE_SECRET_PATH`     | `data/club/.film-vote-secret`; stabil stemmeidentitet        |
-| `FILMKLUBB_ADMIN_AUTH_PATH` | `data/club/admin-auth.json`; passordhash og sesjonssignering |
-| `FILMKLUBB_ADMIN_ORIGIN`    | Nettsidens origin, eksempel `https://filmklubb.example.org`  |
-| `FILMKLUBB_LOCAL_ADMIN`     | `1` bare for lokalt førstegangsoppsett i utviklingsmodus     |
-| `NEXT_PUBLIC_BASE_PATH`     | Tom for rot; `/filmklubb` for hosting i undermappe           |
+| Variabel                    | Standard / bruk                                                    |
+| --------------------------- | ------------------------------------------------------------------ |
+| `TMDB_API_KEY`              | Valgfri egen nøkkel for filmsøk og nye bilder                      |
+| `CLUB_DB_PATH`              | `data/club/filmklubb.sqlite`; stemmer, planer og snapshots         |
+| `FILM_VOTE_SECRET_PATH`     | `data/club/.film-vote-secret`; stabil stemmeidentitet              |
+| `FILMKLUBB_ADMIN_AUTH_PATH` | `data/club/admin-auth.json`; passordhash og sesjonssignering       |
+| `FILMKLUBB_ADMIN_ORIGIN`    | Nettsidens origin, eksempel `https://filmklubb.example.org`        |
+| `FILMKLUBB_LOCAL_ADMIN`     | `1` bare for lokalt førstegangsoppsett i utviklingsmodus           |
+| `NEXT_PUBLIC_BASE_PATH`     | Tom for rot; `/filmklubb` for hosting i undermappe                 |
+| `FILMKLUBB_PROGRAMME_PATH`  | `data/club/programme.json`; klubbens programfil, leses ved bygging |
 
-Hold SQLite, adminfil og stemmehemmelighet utenfor Git og bevar dem på tvers av nye bygg. Bruk absolutte stier ved drift dersom arbeidsmappen skifter. Genererte bilder i `public/VHS/generated` og `.cache` kan regenereres. Ingen nøkler, cookies, stemmedatabaser eller adminfiler fra andre klubber følger med repoet.
+Klubbens programfil (klubber, alias og eventuelt `ticketVenue` for eldre, konfigurerte visninger) bakes inn ved `pnpm build`. Finnes `data/club/programme.json`, eller filen `FILMKLUBB_PROGRAMME_PATH` peker på, erstatter den malen i `src/data/filmClubProgramme.json`. En ugyldig fil stopper bygget. Bygg på nytt etter endringer i filen.
+
+Hold SQLite, programfil, adminfil og stemmehemmelighet utenfor Git og bevar dem på tvers av nye bygg. Bruk absolutte stier ved drift dersom arbeidsmappen skifter. Genererte bilder i `public/VHS/generated` og `.cache` kan regenereres. Ingen nøkler, cookies, stemmedatabaser eller adminfiler fra andre klubber følger med repoet.
 
 ## Før første produksjonsstart
 
@@ -33,4 +36,4 @@ Sett `NEXT_PUBLIC_BASE_PATH=/filmklubb` **før bygging**. Ruter, API og bildefil
 
 Stopp appen før du kopierer SQLite-filen og tilhørende SQLite-journal/WAL-filer, eller bruk et konsistent SQLite-backupverktøy. Bevar også adminfil og stemmehemmelighet separat med begrenset tilgang. Kontroller at sikkerhetskopien kan leses før oppgradering.
 
-Bytt kode og bygg uten å erstatte `data/`, miljøfiler eller hemmeligheter. Verifiser dagens runde, historikken, stemmetall og admininnlogging etterpå. En rollback skal normalt bytte kode, ikke overskrive nyere stemmedata med en eldre database.
+Bytt kode og bygg uten å erstatte `data/` (inkludert `data/club/programme.json`), miljøfiler eller hemmeligheter. Verifiser dagens runde, historikken, stemmetall og admininnlogging etterpå. En rollback skal normalt bytte kode, ikke overskrive nyere stemmedata med en eldre database.
