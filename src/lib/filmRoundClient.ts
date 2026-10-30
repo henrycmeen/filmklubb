@@ -37,7 +37,7 @@ const statsSchema = z.object({
 });
 
 const snapshotSchema = z.object({
-  boardId: z.string().trim().min(1).max(64),
+  boardId: z.string().trim().min(1).max(128),
   clubId: z.string().trim().min(1).max(64),
   screeningId: z.string().trim().min(1).max(128),
   scheduledAt: z.string().datetime({ offset: true }),
@@ -52,7 +52,7 @@ const snapshotSchema = z.object({
 
 const openRoundSchema = z.object({
   status: z.literal("open"),
-  boardId: z.string().trim().min(1).max(64),
+  boardId: z.string().trim().min(1).max(128),
   scheduledAt: z.string().datetime({ offset: true }).optional(),
   venue: z.string().trim().min(1).max(256).optional(),
   candidateIds: z.array(z.number().int().positive()).max(200).optional(),
@@ -60,7 +60,7 @@ const openRoundSchema = z.object({
 
 const scheduledRoundSchema = z.object({
   status: z.literal("scheduled"),
-  boardId: z.string().trim().min(1).max(64),
+  boardId: z.string().trim().min(1).max(128),
   opensAt: z.string().datetime({ offset: true }),
   scheduledAt: z.string().datetime({ offset: true }),
   venue: z.string().trim().min(1).max(256).optional(),
@@ -68,7 +68,7 @@ const scheduledRoundSchema = z.object({
 
 const awaitingRoundSchema = z.object({
   status: z.literal("awaiting"),
-  boardId: z.string().trim().min(1).max(64),
+  boardId: z.string().trim().min(1).max(128),
   resultsAt: z.string().datetime({ offset: true }),
   scheduledAt: z.string().datetime({ offset: true }),
   venue: z.string().trim().min(1).max(256).optional(),
@@ -81,7 +81,7 @@ const idleRoundSchema = z.object({
 
 const closedRoundSchema = z.object({
   status: z.literal("closed"),
-  boardId: z.string().trim().min(1).max(64),
+  boardId: z.string().trim().min(1).max(128),
   snapshot: snapshotSchema,
 });
 
