@@ -18,7 +18,7 @@ void test("keeps the September catalogue as the unchanged 107-film prefix", () =
 });
 
 void test("merges the expanded Halloween catalogue by identity without duplicates", () => {
-  assert.equal(halloweenFilmCatalogue.length, 28);
+  assert.equal(halloweenFilmCatalogue.length, 29);
   assert.equal(
     new Set(halloweenFilmCatalogue.map((film) => film.id)).size,
     halloweenFilmCatalogue.length,
@@ -51,6 +51,8 @@ void test("merges the expanded Halloween catalogue by identity without duplicate
 
 void test("includes the requested original horror films with covers and trailers", () => {
   for (const [id, year] of [
+    [10212, 1999],
+    [21484, 1981],
     [16372, 1961],
     [25623, 1977],
     [16307, 1973],
