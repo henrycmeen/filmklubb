@@ -498,7 +498,21 @@ const scoreSearchCandidate = (
   return score;
 };
 
-const fetchTmdbSearchResults = async (
+const activeRequests = new Map<string, Promise<unknown>>();
+
+const shareRequest = async <T>(key: string, load: () => Promise<T>): Promise<T> => {
+  const existing = activeRequests.get(key);
+  if (existing) return existing as Promise<T>;
+  const request = load();
+  activeRequests.set(key, request);
+  try {
+    return await request;
+  } finally {
+    if (activeRequests.get(key) === request) activeRequests.delete(key);
+  }
+};
+
+const loadTmdbSearchResults = async (
   query: TmdbTitleQuery
 ): Promise<z.infer<typeof tmdbMovieListResponseSchema>> => {
   const cachePath = getSearchCachePath(query.title, query.year);
@@ -529,6 +543,9 @@ const fetchTmdbSearchResults = async (
   return data;
 };
 
+const fetchTmdbSearchResults = (query: TmdbTitleQuery) =>
+  shareRequest(getSearchCachePath(query.title, query.year), () => loadTmdbSearchResults(query));
+
 const searchTmdbMovie = async (query: TmdbTitleQuery): Promise<ClubMovie | null> => {
   const data = await fetchTmdbSearchResults(query);
   if (data.results.length === 0) {
@@ -556,7 +573,7 @@ export const hasTmdbApiKey = (): boolean => {
   return Boolean((apiKey?.length ?? 0) > 0 || (readToken?.length ?? 0) > 0);
 };
 
-export const getTmdbMovieList = async (
+const loadTmdbMovieList = async (
   listType: TmdbMovieListType,
   page = 1
 ): Promise<ClubMovie[]> => {
@@ -584,6 +601,9 @@ export const getTmdbMovieList = async (
 
   return mapTmdbResponseToMovies(data);
 };
+
+export const getTmdbMovieList = (listType: TmdbMovieListType, page = 1): Promise<ClubMovie[]> =>
+  shareRequest(getListCachePath(listType, page), () => loadTmdbMovieList(listType, page));
 
 export const getTmdbMoviesByTitleQueries = async (
   queries: TmdbTitleQuery[]
@@ -636,7 +656,7 @@ export const getTmdbMoviesBySearchQuery = async (
   return output;
 };
 
-export const getTmdbMovieById = async (
+const loadTmdbMovieById = async (
   movieId: number
 ): Promise<ClubMovie | null> => {
   if (!Number.isFinite(movieId) || movieId <= 0) {
@@ -660,6 +680,9 @@ export const getTmdbMovieById = async (
   const parsed = tmdbMovieSchema.parse(rawData);
   return mapTmdbMovieToClubMovie(parsed);
 };
+
+export const getTmdbMovieById = (movieId: number): Promise<ClubMovie | null> =>
+  shareRequest(`movie:${movieId}`, () => loadTmdbMovieById(movieId));
 
 const mapTmdbTicketImage = (
   image: z.infer<typeof tmdbTicketImageSchema>
@@ -858,7 +881,7 @@ const toMovieImageOption = (
   voteCount: image.vote_count ?? 0,
 });
 
-export const getTmdbMovieImages = async (
+const loadTmdbMovieImages = async (
   movieId: number,
   limit = 24,
   options?: { useCache?: boolean }
@@ -924,6 +947,12 @@ export const getTmdbMovieImages = async (
     backdrops,
   };
 };
+
+export const getTmdbMovieImages = (
+  movieId: number, limit = 24, options?: { useCache?: boolean }
+): Promise<TmdbMovieImages> =>
+  shareRequest(`images:${movieId}:${limit}:${options?.useCache ?? true}`,
+    () => loadTmdbMovieImages(movieId, limit, options));
 
 export const getCachedTmdbImagePath = async (
   movieId: number,
