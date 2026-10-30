@@ -28,6 +28,12 @@ Hold SQLite, programfil, adminfil og stemmehemmelighet utenfor Git og bevar dem 
 
 Ingen automatisk distribusjon eller konto-/DNS-oppretting inngår i repoet. Bruk din hosts vanlige Node-oppsett.
 
+## Rate limiting bak proxy
+
+Uten `FILMKLUBB_TRUSTED_PROXIES` bruker rate limiting socket-adressen og ignorerer klientens proxy-headere. Sett variabelen til en kommaseparert liste med eksakte IP-adresser for betrodde proxyer. Både IPv4 og IPv6 støttes; CIDR støttes ikke. Appen går gjennom `X-Forwarded-For` fra høyre og stopper ved første adresse som ikke er betrodd.
+
+For Cloudflare → Caddy → Next må Caddy validere Cloudflare som proxy og overskrive eller trygt bygge videre på forwarding-kjeden. Stol bare på verifiserte proxyadresser, og begrens direkte tilgang til Next. Ikke sett betrodde adresser ut fra headere levert av klienten. Uten slik konfigurasjon deler klienter bak samme proxy én rate-limit-kvote.
+
 ## Undermappe
 
 Sett `NEXT_PUBLIC_BASE_PATH=/filmklubb` **før bygging**. Ruter, API og bildefiler får samme prefiks. Et allerede bygget prosjekt endres ikke ved å sette variabelen først ved oppstart. Admin-origin er fortsatt kun scheme + hostname + eventuell port, uten `/filmklubb`. Verifiser begge offentlig side og admin etter bygging.

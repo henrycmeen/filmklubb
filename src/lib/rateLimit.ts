@@ -1,3 +1,4 @@
+import ipaddr from 'ipaddr.js';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface RateLimitEntry {
@@ -28,17 +29,32 @@ const storesByKey = new Map<string, RateLimitStore>();
 const clampInt = (value: number, min: number): number =>
   Math.max(min, Math.floor(value));
 
+const normalizeIp = (value: string): string | null => {
+  try {
+    return ipaddr.process(value.trim()).toString();
+  } catch {
+    return null;
+  }
+};
+
 const getClientIp = (req: NextApiRequest): string => {
-  const xForwardedFor = req.headers['x-forwarded-for'];
-  if (typeof xForwardedFor === 'string' && xForwardedFor.trim().length > 0) {
-    return xForwardedFor.split(',')[0]?.trim() ?? 'unknown';
-  }
+  const remote = normalizeIp(req.socket.remoteAddress ?? '') ?? 'unknown';
+  // Only explicitly configured proxy peers may supply a forwarding chain.
+  const trusted = new Set((process.env.FILMKLUBB_TRUSTED_PROXIES ?? '')
+    .split(',').map(normalizeIp).filter((ip): ip is string => ip !== null));
+  if (!trusted.has(remote)) return remote;
 
-  if (Array.isArray(xForwardedFor) && xForwardedFor.length > 0) {
-    return xForwardedFor[0]?.trim() ?? 'unknown';
-  }
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded !== 'string' || forwarded.length > 4096) return remote;
+  const chain = forwarded.split(',').map(normalizeIp);
+  if (chain.length > 32 || chain.some(ip => ip === null)) return remote;
 
-  return req.socket.remoteAddress ?? 'unknown';
+  let client = remote;
+  // Walk from the socket towards the client; ignore attacker-supplied prefixes.
+  for (let index = chain.length - 1; index >= 0 && trusted.has(client); index--) {
+    client = chain[index]!;
+  }
+  return client;
 };
 
 const getStore = (key: string): RateLimitStore => {
