@@ -8,6 +8,7 @@ interface RateLimitEntry {
 
 interface RateLimitStore {
   entries: Map<string, RateLimitEntry>;
+  lastSweepAtMs: number;
 }
 
 export interface RateLimitOptions {
@@ -24,6 +25,7 @@ interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+const MAX_IDENTIFIERS_PER_STORE = 10_000;
 const storesByKey = new Map<string, RateLimitStore>();
 
 const clampInt = (value: number, min: number): number =>
@@ -63,7 +65,7 @@ const getStore = (key: string): RateLimitStore => {
     return existing;
   }
 
-  const created: RateLimitStore = { entries: new Map() };
+  const created: RateLimitStore = { entries: new Map(), lastSweepAtMs: 0 };
   storesByKey.set(key, created);
   return created;
 };
@@ -76,7 +78,21 @@ const evaluateRateLimit = (
   const maxRequests = clampInt(options.maxRequests, 1);
   const windowMs = clampInt(options.windowMs, 1_000);
   const store = getStore(options.key);
+  if (now - store.lastSweepAtMs >= 30_000 || store.entries.size >= MAX_IDENTIFIERS_PER_STORE) {
+    for (const [key, entry] of store.entries) {
+      if (entry.resetAtMs <= now) store.entries.delete(key);
+    }
+    store.lastSweepAtMs = now;
+  }
   const existing = store.entries.get(identifier);
+  if (!existing && store.entries.size >= MAX_IDENTIFIERS_PER_STORE) {
+    // Fail closed rather than evicting active limits or growing without bound.
+    return {
+      allowed: false, limit: maxRequests, remaining: 0,
+      resetAtMs: now + windowMs,
+      retryAfterSeconds: Math.max(1, Math.ceil(windowMs / 1000)),
+    };
+  }
 
   if (!existing || existing.resetAtMs <= now) {
     const resetAtMs = now + windowMs;

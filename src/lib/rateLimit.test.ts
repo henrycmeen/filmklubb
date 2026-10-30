@@ -41,3 +41,17 @@ void test('forwarded IPs require trusted peers and cannot bypass the limit with 
   assert.equal(applyRateLimit(request('127.0.0.1', ['1.1.1.1', '8.8.8.8']), response().res, proxied), true);
   assert.equal(applyRateLimit(request('127.0.0.1', 'invalid'), response().res, proxied), false);
 });
+
+void test('limits identifier cardinality without evicting active limits and recovers after expiry', (t) => {
+  let now = 100_000;
+  t.mock.method(Date, 'now', () => now);
+  const options = { key: 'bounded-identifiers-test', maxRequests: 1, windowMs: 1000 };
+  for (let index = 0; index < 10_000; index++) {
+    const address = `198.18.${Math.floor(index / 256)}.${index % 256}`;
+    assert.equal(applyRateLimit(request(address), response().res, options), true);
+  }
+  assert.equal(applyRateLimit(request('203.0.113.1'), response().res, options), false);
+  assert.equal(applyRateLimit(request('198.18.0.0'), response().res, options), false);
+  now += 1001;
+  assert.equal(applyRateLimit(request('203.0.113.1'), response().res, options), true);
+});
