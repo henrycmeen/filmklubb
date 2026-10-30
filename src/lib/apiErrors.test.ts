@@ -27,7 +27,7 @@ void test('API failures return stable JSON without upstream secrets or filesyste
     let body: unknown;
     let status = 0;
     const res = {
-      setHeader() {},
+      setHeader() { return this; },
       status(code: number) { status = code; return this; },
       json(value: unknown) { body = value; return this; },
     } as unknown as NextApiResponse;

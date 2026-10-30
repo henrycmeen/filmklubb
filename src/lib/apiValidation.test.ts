@@ -40,7 +40,7 @@ void test('rejects malformed, ambiguous and oversized params before TMDB or stor
   for (const [handler, query, method = 'GET'] of cases) {
     let status = 0;
     const res = {
-      setHeader() {},
+      setHeader() { return this; },
       status(code: number) { status = code; return this; },
       json() { return this; },
     } as unknown as NextApiResponse;
@@ -72,7 +72,7 @@ void test('render rejects oversized overlay allocations before loading images', 
   ]) {
     let status = 0;
     const res = {
-      setHeader() {},
+      setHeader() { return this; },
       status(code: number) { status = code; return this; },
       json() { return this; },
     } as unknown as NextApiResponse;
