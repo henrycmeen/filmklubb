@@ -152,15 +152,6 @@ export interface TmdbMovieImages {
   backdrops: TmdbMovieImageOption[];
 }
 
-const fileExists = async (absolutePath: string): Promise<boolean> => {
-  try {
-    await fs.access(absolutePath);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 const parsePositiveIntEnv = (value: string | undefined): number | undefined => {
   if (!value) {
     return undefined;
@@ -182,11 +173,13 @@ const getFetchTimeoutMs = (): number =>
   parsePositiveIntEnv(process.env.TMDB_FETCH_TIMEOUT_MS) ??
   DEFAULT_FETCH_TIMEOUT_MS;
 
-const getFetchRetries = (): number =>
-  Math.min(
-    5,
-    parsePositiveIntEnv(process.env.TMDB_FETCH_RETRIES) ?? DEFAULT_FETCH_RETRIES
-  );
+const getFetchRetries = (): number => {
+  const raw = process.env.TMDB_FETCH_RETRIES?.trim();
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isInteger(parsed) && parsed >= 0
+    ? Math.min(5, parsed)
+    : DEFAULT_FETCH_RETRIES;
+};
 
 const getFetchRetryBaseMs = (): number =>
   parsePositiveIntEnv(process.env.TMDB_FETCH_RETRY_BASE_MS) ??
@@ -389,6 +382,41 @@ const isRetriableError = (error: unknown): boolean => {
   return error instanceof TypeError;
 };
 
+// Keep the deadline active through the body, not just until headers arrive.
+const fetchBufferedResponse = async (
+  url: string,
+  init: RequestInit
+): Promise<Response> => {
+  const response = await fetch(url, init);
+  if (!response.ok || !response.body) return response;
+  const reader = response.body.getReader();
+  const onAbort = () => { void reader.cancel().catch(() => undefined); };
+  init.signal?.addEventListener('abort', onAbort, { once: true });
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 16 * 1024 * 1024) throw new Error('TMDB response is too large.');
+      chunks.push(value);
+    }
+    const body = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new Response(body, {
+      status: response.status, statusText: response.statusText, headers: response.headers,
+    });
+  } finally {
+    init.signal?.removeEventListener('abort', onAbort);
+    void reader.cancel().catch(() => undefined);
+  }
+};
+
 const fetchWithRetry = async (
   requestUrl: string,
   requestInit?: RequestInit
@@ -400,13 +428,21 @@ const fetchWithRetry = async (
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const { requestInit: timedInit, cleanup } = withTimeoutSignal(requestInit, timeoutMs);
     try {
-      const response = await fetch(requestUrl, timedInit);
+      const signal = timedInit.signal!;
+      const aborted = new Promise<never>((_resolve, reject) => {
+        const onAbort = () => reject(new DOMException('TMDB request timed out.', 'AbortError'));
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      });
+      const response = await Promise.race([
+        fetchBufferedResponse(requestUrl, timedInit), aborted,
+      ]);
 
+      if (!response.ok) void response.body?.cancel().catch(() => undefined);
       if (response.ok || attempt === retries || !isRetriableStatus(response.status)) {
         return response;
       }
 
-      void response.body?.cancel();
     } catch (error) {
       if (attempt === retries || !isRetriableError(error)) {
         throw error;
