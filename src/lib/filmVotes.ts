@@ -1222,7 +1222,11 @@ export const createFilmVoteStore = (
             .get(input.boardId),
         );
 
-      if (existingSnapshot || existing.completedAt !== null) {
+      if (
+        existingSnapshot ||
+        existing.completedAt !== null ||
+        (existing.published && nowMs >= Date.parse(existing.voteEndsAt))
+      ) {
         throw new FilmRoundScheduleNotEditableError(
           "A closed or completed film round is immutable.",
         );
