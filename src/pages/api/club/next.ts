@@ -29,16 +29,6 @@ const querySchema = z.object({
 });
 const FALLBACK_MOVIE_ID = 78;
 
-const getQueryValue = (
-  value: string | string[] | undefined
-): string | undefined => {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-};
-
 const withHours = (base: Date, addHours: number): string =>
   new Date(base.getTime() + addHours * 60 * 60 * 1000).toISOString();
 
@@ -129,9 +119,7 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const parsedQuery = querySchema.safeParse({
-    boardId: getQueryValue(req.query.boardId),
-  });
+  const parsedQuery = querySchema.safeParse(req.query);
 
   if (!parsedQuery.success) {
     return res.status(400).json({

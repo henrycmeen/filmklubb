@@ -6,7 +6,7 @@ import { applyRateLimit } from './rateLimit';
 const request = (remote: string, forwarded?: string | string[]) => ({
   socket: { remoteAddress: remote },
   headers: { 'x-forwarded-for': forwarded },
-}) as NextApiRequest;
+}) as unknown as NextApiRequest;
 const response = () => {
   const headers = new Map<string, string>();
   let status = 200;

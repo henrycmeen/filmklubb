@@ -6,24 +6,15 @@ const listTypes = ['popular', 'top_rated', 'upcoming', 'now_playing'] as const;
 
 const querySchema = z.object({
   listType: z.enum(listTypes).default('popular'),
-  limit: z.number().int().min(1).max(20).default(12),
+  limit: z.string().regex(/^[0-9]+$/).default('12').transform(Number).pipe(z.number().int().min(1).max(20)),
 });
-
-const getQueryValue = (
-  value: string | string[] | undefined
-): string | undefined => {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-};
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
@@ -31,10 +22,7 @@ export default async function handler(
     return res.status(503).json({ message: 'TMDB is not configured.' });
   }
 
-  const parsedQuery = querySchema.safeParse({
-    listType: getQueryValue(req.query.listType),
-    limit: Number(getQueryValue(req.query.limit) ?? 12),
-  });
+  const parsedQuery = querySchema.safeParse(req.query);
 
   if (!parsedQuery.success) {
     return res.status(400).json({

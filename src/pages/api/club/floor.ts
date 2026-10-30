@@ -18,16 +18,6 @@ type ApiResponse =
       currentVersion?: number;
     };
 
-const getQueryValue = (
-  value: string | string[] | undefined
-): string | undefined => {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-};
-
 const boardPayloadSchema = z.object({
   boardId: z.string().trim().min(1).max(64).optional(),
   expectedVersion: z.number().int().nonnegative(),
@@ -41,7 +31,7 @@ const boardPayloadSchema = z.object({
       rotation: z.number(),
       score: z.number().min(0).max(100).optional(),
     })
-  ).default([]),
+  ).max(200).default([]),
 });
 
 export default async function handler(
@@ -53,7 +43,9 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const boardId = getQueryValue(req.query.boardId) ?? 'default';
+  const parsedBoardId = z.string().trim().min(1).max(64).default('default').safeParse(req.query.boardId);
+  if (!parsedBoardId.success) return res.status(400).json({ message: 'Invalid board id.' });
+  const boardId = parsedBoardId.data;
 
   try {
     if (req.method === 'GET') {
@@ -62,18 +54,16 @@ export default async function handler(
     }
 
     if (req.method === 'DELETE') {
-      const expectedVersionRaw = getQueryValue(req.query.expectedVersion);
+      const expectedVersionRaw = req.query.expectedVersion;
       if (
         expectedVersionRaw === undefined ||
-        expectedVersionRaw.trim() === ''
+        expectedVersionRaw === ''
       ) {
         return res.status(428).json({ message: 'Expected board version is required.' });
       }
 
-      const expectedVersionResult = z.coerce
-        .number()
-        .int()
-        .nonnegative()
+      const expectedVersionResult = z.string().regex(/^[0-9]+$/)
+        .transform(Number).pipe(z.number().int().safe().nonnegative())
         .safeParse(expectedVersionRaw);
       if (!expectedVersionResult.success) {
         return res.status(400).json({
