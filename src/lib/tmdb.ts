@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import path from 'path';
 import { z } from 'zod';
 import { scheduleCachePrune } from '@/lib/cacheMaintenance';
@@ -224,45 +224,39 @@ const readFreshCache = async <T>(
   cachePath: string,
   payloadSchema: z.ZodType<T>
 ): Promise<T | null> => {
-  if (!(await fileExists(cachePath))) {
+  try {
+    const raw = await fs.readFile(cachePath, 'utf8');
+    const parsed = z.object({
+      cachedAt: z.string().datetime(),
+      payload: payloadSchema,
+    }).parse(JSON.parse(raw) as unknown);
+    const ageMs = Date.now() - Date.parse(parsed.cachedAt);
+    if (ageMs < 0 || ageMs > getCacheTtlSeconds() * 1000) return null;
+    return parsed.payload ?? null;
+  } catch {
+    // Missing, corrupt or unreadable cache entries are cache misses.
     return null;
   }
-
-  const raw = await fs.readFile(cachePath, 'utf8');
-  const parsedRaw: unknown = JSON.parse(raw);
-
-  const entrySchema = z.object({
-    cachedAt: z.string(),
-    payload: payloadSchema,
-  });
-
-  const parsed = entrySchema.parse(parsedRaw);
-
-  const ageMs = Date.now() - new Date(parsed.cachedAt).getTime();
-  const ttlMs = getCacheTtlSeconds() * 1000;
-
-  if (ageMs > ttlMs) {
-    return null;
-  }
-
-  return parsed.payload ?? null;
 };
 
 const writeCache = async <T>(cachePath: string, payload: T): Promise<void> => {
-  await fs.mkdir(path.dirname(cachePath), { recursive: true });
-
-  const content = {
-    cachedAt: new Date().toISOString(),
-    payload,
-  };
-
-  await fs.writeFile(cachePath, JSON.stringify(content), 'utf8');
-
-  scheduleCachePrune(TMDB_CACHE_ROOT, {
-    maxBytes: getTmdbCacheMaxBytes(),
-    maxAgeMs: getTmdbCacheMaxAgeMs(),
-    throttleMs: TMDB_CACHE_PRUNE_THROTTLE_MS,
-  });
+  const temporaryPath = `${cachePath}.${randomUUID()}.tmp`;
+  try {
+    await fs.mkdir(path.dirname(cachePath), { recursive: true });
+    await fs.writeFile(temporaryPath, JSON.stringify({
+      cachedAt: new Date().toISOString(), payload,
+    }), 'utf8');
+    await fs.rename(temporaryPath, cachePath);
+    scheduleCachePrune(TMDB_CACHE_ROOT, {
+      maxBytes: getTmdbCacheMaxBytes(),
+      maxAgeMs: getTmdbCacheMaxAgeMs(),
+      throttleMs: TMDB_CACHE_PRUNE_THROTTLE_MS,
+    });
+  } catch {
+    // Cache storage must not discard a successful upstream response.
+  } finally {
+    await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+  }
 };
 
 const mapTmdbMovieToClubMovie = (
