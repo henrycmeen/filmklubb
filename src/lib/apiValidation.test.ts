@@ -64,3 +64,22 @@ void test('unsupported methods include Allow on scoped APIs', async () => {
     assert.equal(allow, allowed);
   }
 });
+
+void test('render rejects oversized overlay allocations before loading images', async () => {
+  for (const overlays of [
+    [{ publicPath: '/own-test.png', width: 1000000, height: 1000000 }],
+    Array.from({ length: 17 }, () => ({ publicPath: '/own-test.png' })),
+  ]) {
+    let status = 0;
+    const res = {
+      setHeader() {},
+      status(code: number) { status = code; return this; },
+      json() { return this; },
+    } as unknown as NextApiResponse;
+    await render({
+      method: 'POST', body: { sourcePath: '/own-test.png', overlays },
+      headers: {}, socket: { remoteAddress: '127.0.0.1' },
+    } as unknown as NextApiRequest, res);
+    assert.equal(status, 400);
+  }
+});

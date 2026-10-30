@@ -8,7 +8,7 @@ import {
 import { renderVhsPoster } from '@/lib/vhs/render';
 
 const overlaySchema = z.object({
-  publicPath: z.string().min(1),
+  publicPath: z.string().min(1).max(1024),
   blend: z
     .enum([
       'over',
@@ -21,10 +21,10 @@ const overlaySchema = z.object({
     ])
     .optional(),
   opacity: z.number().min(0).max(1).optional(),
-  left: z.number().int().min(0).optional(),
-  top: z.number().int().min(0).optional(),
-  width: z.number().int().min(1).optional(),
-  height: z.number().int().min(1).optional(),
+  left: z.number().int().min(0).max(4096).optional(),
+  top: z.number().int().min(0).max(4096).optional(),
+  width: z.number().int().min(1).max(4096).optional(),
+  height: z.number().int().min(1).max(4096).optional(),
 });
 
 const renderRequestSchema = z
@@ -35,7 +35,7 @@ const renderRequestSchema = z
     fit: z.enum(['cover', 'contain']).optional(),
     width: z.number().int().min(320).max(4096).optional(),
     height: z.number().int().min(320).max(4096).optional(),
-    overlays: z.array(overlaySchema).optional(),
+    overlays: z.array(overlaySchema).max(16).optional(),
     format: z.enum(['png', 'webp']).optional(),
     quality: z.number().int().min(1).max(100).optional(),
     background: z.string().min(1).optional(),
