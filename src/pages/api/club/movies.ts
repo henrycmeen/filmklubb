@@ -28,10 +28,7 @@ export default async function handler(
   }
 
   if (!hasTmdbApiKey()) {
-    return res.status(500).json({
-      message:
-        'TMDB API access mangler i .env. Legg inn TMDB_API_KEY eller TMDB_READ_ACCESS_TOKEN.',
-    });
+    return res.status(503).json({ message: 'TMDB is not configured.' });
   }
 
   const parsedQuery = querySchema.safeParse({
@@ -55,10 +52,7 @@ export default async function handler(
       count: Math.min(parsedQuery.data.limit, movies.length),
       movies: movies.slice(0, parsedQuery.data.limit),
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unexpected TMDB fetch error';
-
-    return res.status(500).json({ message });
+  } catch {
+    return res.status(500).json({ message: 'Movies are temporarily unavailable.' });
   }
 }

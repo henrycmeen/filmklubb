@@ -123,9 +123,6 @@ export default async function handler(
       });
     }
 
-    const message =
-      error instanceof Error ? error.message : 'Unexpected floor board error.';
-
-    return res.status(500).json({ message });
+    return res.status(500).json({ message: 'Floor board is temporarily unavailable.' });
   }
 }

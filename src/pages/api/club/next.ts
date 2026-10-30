@@ -168,9 +168,7 @@ export default async function handler(
       now: enriched[0] ?? null,
       queue: enriched.slice(1),
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unexpected next-program error.';
-    return res.status(500).json({ message });
+  } catch {
+    return res.status(500).json({ message: 'Next programme is temporarily unavailable.' });
   }
 }
