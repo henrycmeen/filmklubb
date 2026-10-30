@@ -1,9 +1,9 @@
-import { promises as fs } from 'node:fs';
+import { constants, promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { VHS_RENDER_CACHE_DIRECTORY } from '@/lib/storagePaths';
 
-const VALID_FILE_NAME = /^[a-z0-9][a-z0-9._-]*$/i;
+const VALID_FILE_NAME = /^[a-z0-9][a-z0-9._-]*\.(png|webp|jpe?g)$/i;
 
 const getContentType = (fileName: string): string => {
   const extension = path.extname(fileName).toLowerCase();
@@ -31,8 +31,8 @@ export default async function handler(
   }
 
   const fileNameRaw = req.query.fileName;
-  const fileName = Array.isArray(fileNameRaw) ? fileNameRaw[0] : fileNameRaw;
-  if (!fileName || !VALID_FILE_NAME.test(fileName)) {
+  const fileName = fileNameRaw;
+  if (typeof fileName !== 'string' || fileName.length > 255 || !VALID_FILE_NAME.test(fileName)) {
     res.status(400).json({ message: 'Invalid file name.' });
     return;
   }
@@ -47,12 +47,24 @@ export default async function handler(
   }
 
   try {
-    const fileBuffer = await fs.readFile(normalized);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const file = await fs.open(normalized, constants.O_RDONLY | constants.O_NOFOLLOW);
+    let fileBuffer: Buffer;
+    try {
+      if (!(await file.stat()).isFile()) {
+        res.status(404).json({ message: 'Image not found.' });
+        return;
+      }
+      fileBuffer = await file.readFile();
+    } finally {
+      await file.close();
+    }
+    // Cover regeneration can replace the bytes at an existing URL.
+    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Type', getContentType(fileName));
     res.status(200).send(fileBuffer);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    if (['ENOENT', 'ELOOP'].includes((error as NodeJS.ErrnoException).code ?? '')) {
       res.status(404).json({ message: 'Image not found.' });
       return;
     }
