@@ -414,5 +414,49 @@
   "/VHS/program/vote-covers/125-blue-velvet.webp": {
     "image": "/VHS/program/cassette-logos/793.png",
     "surface": "dark"
+  },
+  "/VHS/program/vote-covers/141-cure.webp": {
+    "image": "/VHS/program/cassette-logos/36095.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/129-martyrs.webp": {
+    "image": "/VHS/program/cassette-logos/9539.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/154-ravenous.webp": {
+    "image": "/VHS/program/cassette-logos/10212.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/151-the-innocents.webp": {
+    "image": "/VHS/program/cassette-logos/16372.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/140-possession.webp": {
+    "image": "/VHS/program/cassette-logos/21484.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/152-the-wicker-man.webp": {
+    "image": "/VHS/program/cassette-logos/16307.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/137-house.webp": {
+    "image": "/VHS/program/cassette-logos/25623.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/126-ju-on-the-curse.webp": {
+    "image": "/VHS/program/cassette-logos/32250.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/131-jacobs-ladder.webp": {
+    "image": "/VHS/program/cassette-logos/2291.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/130-infinity-pool.webp": {
+    "image": "/VHS/program/cassette-logos/667216.png",
+    "surface": "dark"
+  },
+  "/VHS/program/vote-covers/128-lake-mungo.webp": {
+    "image": "/VHS/program/cassette-logos/27374.png",
+    "surface": "dark"
   }
 }

@@ -4,38 +4,16 @@ import { applyRateLimit } from '@/lib/rateLimit';
 import { getTmdbMoviesBySearchQuery, hasTmdbApiKey } from '@/lib/tmdb';
 
 const querySchema = z.object({
-  query: z.string().trim().min(1),
-  limit: z.number().int().min(1).max(20).default(8),
+  query: z.string().trim().min(1).max(256),
+  limit: z.string().regex(/^[0-9]+$/).default('8').transform(Number).pipe(z.number().int().min(1).max(20)),
 });
-
-const getQueryValue = (
-  value: string | string[] | undefined
-): string | undefined => {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-};
-
-const parseOptionalNumber = (value: string | undefined): number | undefined => {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-};
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
@@ -50,16 +28,10 @@ export default async function handler(
   }
 
   if (!hasTmdbApiKey()) {
-    return res.status(500).json({
-      message:
-        'TMDB API access mangler i .env. Legg inn TMDB_API_KEY eller TMDB_READ_ACCESS_TOKEN.',
-    });
+    return res.status(503).json({ message: 'TMDB is not configured.' });
   }
 
-  const parsedQuery = querySchema.safeParse({
-    query: getQueryValue(req.query.query),
-    limit: parseOptionalNumber(getQueryValue(req.query.limit)),
-  });
+  const parsedQuery = querySchema.safeParse(req.query);
 
   if (!parsedQuery.success) {
     return res.status(400).json({
@@ -85,10 +57,7 @@ export default async function handler(
         backdropUrl: movie.backdropUrl,
       })),
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unexpected TMDB search error';
-
-    return res.status(500).json({ message });
+  } catch {
+    return res.status(500).json({ message: 'TMDB search is temporarily unavailable.' });
   }
 }

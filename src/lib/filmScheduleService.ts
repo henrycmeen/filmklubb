@@ -28,7 +28,7 @@ export type PublicFilmRound =
       resultsAt: string;
       scheduledAt: string;
     }
-  | { status: "idle" };
+  | { status: "idle"; candidateIds?: number[] };
 
 function scheduledStatus(
   round: ScheduledFilmRound,
@@ -90,6 +90,7 @@ export function getPublicFilmRound(
     .sort((a, b) => Date.parse(a.voteStartsAt) - Date.parse(b.voteStartsAt));
   const active = published.find(
     (round) =>
+      !round.completedAt &&
       Date.parse(round.voteStartsAt) <= now.getTime() &&
       now.getTime() < Date.parse(round.displayUntil),
   );
@@ -104,7 +105,11 @@ export function getPublicFilmRound(
   const upcoming = published.find(
     (round) => now.getTime() < Date.parse(round.voteStartsAt),
   );
-  return upcoming ? scheduledStatus(upcoming, store, now) : { status: "idle" };
+  if (upcoming) return scheduledStatus(upcoming, store, now);
+  const planning = store.getFilmPlanning(clubId);
+  return planning.candidateIds.length
+    ? { status: "idle", candidateIds: planning.candidateIds }
+    : { status: "idle" };
 }
 
 export function getPublicFilmHistory(

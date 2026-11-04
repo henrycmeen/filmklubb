@@ -158,6 +158,7 @@ export const buildFilmRoundLockMetadata = (
     ticketTemplates: createTicketTemplates(
       legacyFilmCatalogue,
       current.scheduledAt,
+      getFilmClubProgramme(current.clubId).ticketVenue,
     ),
   });
 };

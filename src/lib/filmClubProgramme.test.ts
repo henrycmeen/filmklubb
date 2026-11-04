@@ -53,6 +53,22 @@ void test("preserves explicit legacy screening metadata and validates aliases", 
   );
 });
 
+void test("an installation may name the venue for its legacy screening tickets", () => {
+  const config = filmClubProgrammeConfigSchema.parse({
+    clubs: { default: { ...legacyProgramme, ticketVenue: " Kinosalen " } },
+    aliases: {},
+  });
+  assert.equal(config.clubs.default!.ticketVenue, "Kinosalen");
+  assert.equal(
+    filmClubProgrammeConfigSchema.safeParse({
+      clubs: { default: { ...legacyProgramme, ticketVenue: " " } },
+      aliases: {},
+    }).success,
+    false,
+  );
+  assert.equal(getFilmClubProgramme("default").ticketVenue, undefined);
+});
+
 void test("fresh template and unknown namespaces have no legacy election", () => {
   assert.equal(getFilmClubProgramme("default").activeScreening, null);
   assert.equal(getActiveVoteBoardId("default"), null);
@@ -91,4 +107,46 @@ void test("validates history entries used by the results view", () => {
     }).success,
     false,
   );
+});
+
+void test("round artwork is optional, per board and limited to public images", () => {
+  const clubs = {
+    default: { name: "Filmklubb", activeScreening: null, history: [] },
+  };
+  assert.deepEqual(
+    filmClubProgrammeConfigSchema.parse({ clubs, aliases: {} }).roundArtwork,
+    {},
+  );
+  const config = filmClubProgrammeConfigSchema.parse({
+    clubs,
+    aliases: {},
+    roundArtwork: {
+      "default-halloween": { blood: true, keepAnnouncement: true },
+      "default-2026-09-22": { tape: "/VHS/program/archive-tape.png" },
+    },
+  });
+  assert.deepEqual(config.roundArtwork["default-halloween"], {
+    blood: true,
+    keepAnnouncement: true,
+  });
+  assert.deepEqual(config.roundArtwork["default-2026-09-22"], {
+    tape: "/VHS/program/archive-tape.png",
+    blood: false,
+    keepAnnouncement: false,
+  });
+  for (const tape of [
+    "https://example.com/tape.png",
+    "/../secret.png",
+    "/tape.svg",
+  ]) {
+    assert.equal(
+      filmClubProgrammeConfigSchema.safeParse({
+        clubs,
+        aliases: {},
+        roundArtwork: { "default-x": { tape } },
+      }).success,
+      false,
+      tape,
+    );
+  }
 });

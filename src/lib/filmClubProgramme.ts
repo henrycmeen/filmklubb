@@ -58,12 +58,35 @@ export const filmClubProgrammeSchema = z.object({
   name: z.string().trim().min(1),
   activeScreening: filmClubActiveScreeningSchema.nullable().default(null),
   history: z.array(filmClubHistoryEntrySchema),
+  /** Ticket venue for configured legacy screenings; admin rounds set their own. */
+  ticketVenue: z.string().trim().min(1).optional(),
 });
+
+/** Artwork for one round, keyed by board ID in the installation's config. */
+export const filmRoundArtworkSchema = z
+  .object({
+    /** A transparent tape image under public/, shown on the round's cassette. */
+    tape: z
+      .string()
+      .regex(/^(?:\/[A-Za-z0-9_-][A-Za-z0-9_.-]*)+\.(png|webp|avif)$/)
+      .refine((path) => !path.includes(".."))
+      .optional(),
+    blood: z.boolean().default(false),
+    /** Keeps the winner announcement after the screening has started. */
+    keepAnnouncement: z.boolean().default(false),
+  })
+  .strict();
 
 export const filmClubProgrammeConfigSchema = z
   .object({
     clubs: z.record(filmClubProgrammeSchema),
     aliases: z.record(z.string().trim().min(1)),
+    roundArtwork: z
+      .record(
+        z.string().regex(/^[a-z0-9][a-z0-9-]{0,127}$/),
+        filmRoundArtworkSchema,
+      )
+      .default({}),
   })
   .superRefine((config, context) => {
     for (const clubId of Object.keys(config.clubs)) {
@@ -116,6 +139,7 @@ export type FilmClubActiveScreening = z.infer<
   typeof filmClubActiveScreeningSchema
 >;
 export type FilmClubProgramme = z.infer<typeof filmClubProgrammeSchema>;
+export type FilmRoundArtwork = z.infer<typeof filmRoundArtworkSchema>;
 export type FilmClubProgrammeConfig = z.infer<
   typeof filmClubProgrammeConfigSchema
 >;
@@ -123,8 +147,17 @@ export type FilmClubProgrammeConfig = z.infer<
 const filmClubProgrammeConfig =
   filmClubProgrammeConfigSchema.parse(programmeConfig);
 
+const NO_ROUND_ARTWORK: FilmRoundArtwork = {
+  blood: false,
+  keepAnnouncement: false,
+};
+
+export const getRoundArtwork = (boardId: string): FilmRoundArtwork =>
+  filmClubProgrammeConfig.roundArtwork[boardId] ?? NO_ROUND_ARTWORK;
+
 const cloneProgramme = (programme: FilmClubProgramme): FilmClubProgramme => ({
   name: programme.name,
+  ...(programme.ticketVenue ? { ticketVenue: programme.ticketVenue } : {}),
   activeScreening: programme.activeScreening
     ? { ...programme.activeScreening }
     : null,

@@ -4,6 +4,17 @@ import {
   type FilmRoundLockMetadata,
 } from "./filmRound";
 
+export const filmPlanningSchema = z.object({
+  candidateIds: z
+    .array(z.number().int().positive())
+    .max(200)
+    .refine(
+      (ids) => new Set(ids).size === ids.length,
+      "Velg hver film bare én gang.",
+    ),
+  revision: z.number().int().nonnegative().nullable(),
+});
+export type FilmPlanning = z.infer<typeof filmPlanningSchema>;
 const identifierSchema = z
   .string()
   .trim()

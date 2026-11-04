@@ -1,4 +1,5 @@
 import legacyCatalogueData from "@/data/filmVoteCatalogue.json";
+import christmasCatalogueData from "@/data/christmasCatalogue.json";
 import halloweenCatalogueData from "@/data/halloweenCatalogue.json";
 
 /**
@@ -9,10 +10,12 @@ import halloweenCatalogueData from "@/data/halloweenCatalogue.json";
  */
 export const legacyFilmCatalogue = legacyCatalogueData;
 export const halloweenFilmCatalogue = halloweenCatalogueData;
+export const christmasFilmCatalogue = christmasCatalogueData;
 
 export type FilmCatalogueEntry =
   | (typeof legacyFilmCatalogue)[number]
-  | (typeof halloweenFilmCatalogue)[number];
+  | (typeof halloweenFilmCatalogue)[number]
+  | (typeof christmasFilmCatalogue)[number];
 
 /**
  * Merge catalogues without changing the legacy ordering or objects.  Legacy
@@ -38,6 +41,7 @@ const mergeById = (
 export const combinedFilmCatalogue = mergeById(
   legacyFilmCatalogue,
   halloweenFilmCatalogue,
+  christmasFilmCatalogue,
 );
 
 export const legacyFilmIds = new Set(

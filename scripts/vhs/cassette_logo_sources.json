@@ -439,7 +439,7 @@
   },
   {
     "tmdbId": 499,
-    "title": "Cl\u00e9o from 5 to 7",
+    "title": "Cléo from 5 to 7",
     "source": "https://image.tmdb.org/t/p/w300/4xwsgt0WnvurG6U6AI76CW515Ys.png",
     "language": "en"
   },
@@ -457,7 +457,7 @@
   },
   {
     "tmdbId": 5511,
-    "title": "Le Samoura\u00ef",
+    "title": "Le Samouraï",
     "source": "https://image.tmdb.org/t/p/w300/iGMGd9hsKq3g1kz68OwcxSVl5aH.png",
     "language": "en"
   },
@@ -639,6 +639,72 @@
     "tmdbId": 793,
     "title": "Blue Velvet",
     "source": "https://image.tmdb.org/t/p/w300/oxVkIzRXAZcfDPRmVKwGAOQtauR.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 36095,
+    "title": "Cure",
+    "source": "https://image.tmdb.org/t/p/w500/tRqn2cLAVJODVxJYmthupZLXpDP.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 9539,
+    "title": "Martyrs",
+    "source": "https://image.tmdb.org/t/p/w500/e8DoHVEQrAPAk8n3oyrSyroR7ma.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 10212,
+    "title": "Ravenous",
+    "source": "https://image.tmdb.org/t/p/w500/ecSvGogKhWKbPenHgyuvFN1XlbQ.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 16372,
+    "title": "The Innocents",
+    "source": "https://image.tmdb.org/t/p/w500/3p2evNVepSejnH48gWfVeaTStuh.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 21484,
+    "title": "Possession",
+    "source": "https://image.tmdb.org/t/p/w500/wHWbLpO4ugMaeGapuPZWBk5zpBy.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 16307,
+    "title": "The Wicker Man",
+    "source": "https://image.tmdb.org/t/p/w500/lGuHMdeDMtGxJT6TspY6w9mCrdb.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 25623,
+    "title": "House",
+    "source": "https://image.tmdb.org/t/p/w500/kUuKPp8CjW7jvnqipvDySpaXK8P.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 32250,
+    "title": "Ju-on: The Curse",
+    "source": "https://image.tmdb.org/t/p/w500/98c9VTtxAH1f6U5e53Oha9Ujow5.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 2291,
+    "title": "Jacob's Ladder",
+    "source": "https://image.tmdb.org/t/p/w500/yn4JCLUJG1RzQKmPZcr4bHizNNq.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 667216,
+    "title": "Infinity Pool",
+    "source": "https://image.tmdb.org/t/p/w500/7WtZABOUrg5TEpkPgAyzlmy98ZX.png",
+    "language": "en"
+  },
+  {
+    "tmdbId": 27374,
+    "title": "Lake Mungo",
+    "source": "https://image.tmdb.org/t/p/w500/fCnZlDGpSVnoUfNOtFzGSvW0j2T.png",
     "language": "en"
   }
 ]

@@ -12,7 +12,8 @@ import {
   getFilmRoundBoardId,
   isConfiguredClub,
 } from "@/lib/filmRoundService";
-import { combinedFilmCatalogue } from "@/lib/filmCatalogue";
+import { filmPlanningSchema } from "@/lib/filmSchedule";
+import { combinedFilmCatalogue, combinedFilmIds } from "@/lib/filmCatalogue";
 import { FilmScheduleError, getFilmVoteStore } from "@/lib/filmVotes";
 import { selectRoundCandidates } from "@/lib/filmRoundCandidates";
 
@@ -25,8 +26,19 @@ const instant = z.string().datetime({ offset: true });
 const command = z.discriminatedUnion("action", [
   z
     .object({
+      action: z.literal("plan"),
+      expectedRevision: z.number().int().nonnegative().nullable(),
+      candidateIds: filmPlanningSchema.shape.candidateIds.refine((ids) =>
+        ids.every((id) => combinedFilmIds.has(id)),
+      ),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("save"),
       expectedRevision: z.number().int().nonnegative().nullable(),
+      // The shortlist revision the admin saw; publishing consumes only that.
+      planningRevision: z.number().int().nonnegative().nullable().optional(),
       round: z
         .object({
           screeningId: identifier.max(64),
@@ -93,7 +105,13 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     store.finalizeDueRounds(clubId);
     if (parsed?.success) {
       const input = parsed.data;
-      if (input.action === "save") {
+      if (input.action === "plan") {
+        store.saveFilmPlanning(
+          clubId,
+          input.candidateIds,
+          input.expectedRevision,
+        );
+      } else if (input.action === "save") {
         const { candidateIds, ...fields } = input.round;
         const boardId = getFilmRoundBoardId(clubId, fields.screeningId);
         if (!boardIdentifier.safeParse(boardId).success)
@@ -137,6 +155,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         store.saveScheduledRound(
           { ...fields, clubId, boardId, metadata },
           input.expectedRevision,
+          input.planningRevision,
         );
       } else {
         const round = store.getScheduledRound(input.boardId);
@@ -152,6 +171,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     return res.status(200).json({
       rounds: store.listScheduledRounds(clubId),
+      planning: store.getFilmPlanning(clubId),
       catalogue: combinedFilmCatalogue.map(({ id, title, year }) => ({
         id,
         title,

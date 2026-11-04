@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import path from 'path';
 import { z } from 'zod';
 import { scheduleCachePrune } from '@/lib/cacheMaintenance';
@@ -152,15 +152,6 @@ export interface TmdbMovieImages {
   backdrops: TmdbMovieImageOption[];
 }
 
-const fileExists = async (absolutePath: string): Promise<boolean> => {
-  try {
-    await fs.access(absolutePath);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 const parsePositiveIntEnv = (value: string | undefined): number | undefined => {
   if (!value) {
     return undefined;
@@ -182,11 +173,13 @@ const getFetchTimeoutMs = (): number =>
   parsePositiveIntEnv(process.env.TMDB_FETCH_TIMEOUT_MS) ??
   DEFAULT_FETCH_TIMEOUT_MS;
 
-const getFetchRetries = (): number =>
-  Math.min(
-    5,
-    parsePositiveIntEnv(process.env.TMDB_FETCH_RETRIES) ?? DEFAULT_FETCH_RETRIES
-  );
+const getFetchRetries = (): number => {
+  const raw = process.env.TMDB_FETCH_RETRIES?.trim();
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isInteger(parsed) && parsed >= 0
+    ? Math.min(5, parsed)
+    : DEFAULT_FETCH_RETRIES;
+};
 
 const getFetchRetryBaseMs = (): number =>
   parsePositiveIntEnv(process.env.TMDB_FETCH_RETRY_BASE_MS) ??
@@ -224,45 +217,39 @@ const readFreshCache = async <T>(
   cachePath: string,
   payloadSchema: z.ZodType<T>
 ): Promise<T | null> => {
-  if (!(await fileExists(cachePath))) {
+  try {
+    const raw = await fs.readFile(cachePath, 'utf8');
+    const parsed = z.object({
+      cachedAt: z.string().datetime(),
+      payload: payloadSchema,
+    }).parse(JSON.parse(raw) as unknown);
+    const ageMs = Date.now() - Date.parse(parsed.cachedAt);
+    if (ageMs < 0 || ageMs > getCacheTtlSeconds() * 1000) return null;
+    return parsed.payload ?? null;
+  } catch {
+    // Missing, corrupt or unreadable cache entries are cache misses.
     return null;
   }
-
-  const raw = await fs.readFile(cachePath, 'utf8');
-  const parsedRaw: unknown = JSON.parse(raw);
-
-  const entrySchema = z.object({
-    cachedAt: z.string(),
-    payload: payloadSchema,
-  });
-
-  const parsed = entrySchema.parse(parsedRaw);
-
-  const ageMs = Date.now() - new Date(parsed.cachedAt).getTime();
-  const ttlMs = getCacheTtlSeconds() * 1000;
-
-  if (ageMs > ttlMs) {
-    return null;
-  }
-
-  return parsed.payload ?? null;
 };
 
 const writeCache = async <T>(cachePath: string, payload: T): Promise<void> => {
-  await fs.mkdir(path.dirname(cachePath), { recursive: true });
-
-  const content = {
-    cachedAt: new Date().toISOString(),
-    payload,
-  };
-
-  await fs.writeFile(cachePath, JSON.stringify(content), 'utf8');
-
-  scheduleCachePrune(TMDB_CACHE_ROOT, {
-    maxBytes: getTmdbCacheMaxBytes(),
-    maxAgeMs: getTmdbCacheMaxAgeMs(),
-    throttleMs: TMDB_CACHE_PRUNE_THROTTLE_MS,
-  });
+  const temporaryPath = `${cachePath}.${randomUUID()}.tmp`;
+  try {
+    await fs.mkdir(path.dirname(cachePath), { recursive: true });
+    await fs.writeFile(temporaryPath, JSON.stringify({
+      cachedAt: new Date().toISOString(), payload,
+    }), 'utf8');
+    await fs.rename(temporaryPath, cachePath);
+    scheduleCachePrune(TMDB_CACHE_ROOT, {
+      maxBytes: getTmdbCacheMaxBytes(),
+      maxAgeMs: getTmdbCacheMaxAgeMs(),
+      throttleMs: TMDB_CACHE_PRUNE_THROTTLE_MS,
+    });
+  } catch {
+    // Cache storage must not discard a successful upstream response.
+  } finally {
+    await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+  }
 };
 
 const mapTmdbMovieToClubMovie = (
@@ -395,6 +382,41 @@ const isRetriableError = (error: unknown): boolean => {
   return error instanceof TypeError;
 };
 
+// Keep the deadline active through the body, not just until headers arrive.
+const fetchBufferedResponse = async (
+  url: string,
+  init: RequestInit
+): Promise<Response> => {
+  const response = await fetch(url, init);
+  if (!response.ok || !response.body) return response;
+  const reader = response.body.getReader();
+  const onAbort = () => { void reader.cancel().catch(() => undefined); };
+  init.signal?.addEventListener('abort', onAbort, { once: true });
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 16 * 1024 * 1024) throw new Error('TMDB response is too large.');
+      chunks.push(value);
+    }
+    const body = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new Response(body, {
+      status: response.status, statusText: response.statusText, headers: response.headers,
+    });
+  } finally {
+    init.signal?.removeEventListener('abort', onAbort);
+    void reader.cancel().catch(() => undefined);
+  }
+};
+
 const fetchWithRetry = async (
   requestUrl: string,
   requestInit?: RequestInit
@@ -406,13 +428,21 @@ const fetchWithRetry = async (
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const { requestInit: timedInit, cleanup } = withTimeoutSignal(requestInit, timeoutMs);
     try {
-      const response = await fetch(requestUrl, timedInit);
+      const signal = timedInit.signal!;
+      const aborted = new Promise<never>((_resolve, reject) => {
+        const onAbort = () => reject(new DOMException('TMDB request timed out.', 'AbortError'));
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      });
+      const response = await Promise.race([
+        fetchBufferedResponse(requestUrl, timedInit), aborted,
+      ]);
 
+      if (!response.ok) void response.body?.cancel().catch(() => undefined);
       if (response.ok || attempt === retries || !isRetriableStatus(response.status)) {
         return response;
       }
 
-      void response.body?.cancel();
     } catch (error) {
       if (attempt === retries || !isRetriableError(error)) {
         throw error;
@@ -468,7 +498,21 @@ const scoreSearchCandidate = (
   return score;
 };
 
-const fetchTmdbSearchResults = async (
+const activeRequests = new Map<string, Promise<unknown>>();
+
+const shareRequest = async <T>(key: string, load: () => Promise<T>): Promise<T> => {
+  const existing = activeRequests.get(key);
+  if (existing) return existing as Promise<T>;
+  const request = load();
+  activeRequests.set(key, request);
+  try {
+    return await request;
+  } finally {
+    if (activeRequests.get(key) === request) activeRequests.delete(key);
+  }
+};
+
+const loadTmdbSearchResults = async (
   query: TmdbTitleQuery
 ): Promise<z.infer<typeof tmdbMovieListResponseSchema>> => {
   const cachePath = getSearchCachePath(query.title, query.year);
@@ -499,6 +543,9 @@ const fetchTmdbSearchResults = async (
   return data;
 };
 
+const fetchTmdbSearchResults = (query: TmdbTitleQuery) =>
+  shareRequest(getSearchCachePath(query.title, query.year), () => loadTmdbSearchResults(query));
+
 const searchTmdbMovie = async (query: TmdbTitleQuery): Promise<ClubMovie | null> => {
   const data = await fetchTmdbSearchResults(query);
   if (data.results.length === 0) {
@@ -526,7 +573,7 @@ export const hasTmdbApiKey = (): boolean => {
   return Boolean((apiKey?.length ?? 0) > 0 || (readToken?.length ?? 0) > 0);
 };
 
-export const getTmdbMovieList = async (
+const loadTmdbMovieList = async (
   listType: TmdbMovieListType,
   page = 1
 ): Promise<ClubMovie[]> => {
@@ -554,6 +601,9 @@ export const getTmdbMovieList = async (
 
   return mapTmdbResponseToMovies(data);
 };
+
+export const getTmdbMovieList = (listType: TmdbMovieListType, page = 1): Promise<ClubMovie[]> =>
+  shareRequest(getListCachePath(listType, page), () => loadTmdbMovieList(listType, page));
 
 export const getTmdbMoviesByTitleQueries = async (
   queries: TmdbTitleQuery[]
@@ -606,7 +656,7 @@ export const getTmdbMoviesBySearchQuery = async (
   return output;
 };
 
-export const getTmdbMovieById = async (
+const loadTmdbMovieById = async (
   movieId: number
 ): Promise<ClubMovie | null> => {
   if (!Number.isFinite(movieId) || movieId <= 0) {
@@ -630,6 +680,9 @@ export const getTmdbMovieById = async (
   const parsed = tmdbMovieSchema.parse(rawData);
   return mapTmdbMovieToClubMovie(parsed);
 };
+
+export const getTmdbMovieById = (movieId: number): Promise<ClubMovie | null> =>
+  shareRequest(`movie:${movieId}`, () => loadTmdbMovieById(movieId));
 
 const mapTmdbTicketImage = (
   image: z.infer<typeof tmdbTicketImageSchema>
@@ -828,7 +881,7 @@ const toMovieImageOption = (
   voteCount: image.vote_count ?? 0,
 });
 
-export const getTmdbMovieImages = async (
+const loadTmdbMovieImages = async (
   movieId: number,
   limit = 24,
   options?: { useCache?: boolean }
@@ -894,6 +947,12 @@ export const getTmdbMovieImages = async (
     backdrops,
   };
 };
+
+export const getTmdbMovieImages = (
+  movieId: number, limit = 24, options?: { useCache?: boolean }
+): Promise<TmdbMovieImages> =>
+  shareRequest(`images:${movieId}:${limit}:${options?.useCache ?? true}`,
+    () => loadTmdbMovieImages(movieId, limit, options));
 
 export const getCachedTmdbImagePath = async (
   movieId: number,

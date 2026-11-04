@@ -13,3 +13,12 @@ void test("billettannonseringen brukes bare før visningen starter", () => {
 void test("ugyldig dato utløser ikke en ny vinnerannonsering", () => {
   assert.equal(getFilmResultVariant("invalid", 0), "archive");
 });
+
+void test("en konfigurert runde beholder visningen etter visningsstart", () => {
+  const start = "2026-10-29T16:00:00+01:00";
+  const now = Date.parse(start);
+  for (const time of [now - 1, now, now + 86400000]) {
+    assert.equal(getFilmResultVariant(start, time, true), "announcement");
+  }
+  assert.equal(getFilmResultVariant(start, now, false), "archive");
+});

@@ -196,3 +196,45 @@ void test("authenticated admin creates and closes a round without changing votes
     snapshot.snapshot.snapshotHash,
   );
 });
+
+void test("undated planning requires admin and validates candidates and revision", async () => {
+  const query = { clubSlug: "default" };
+  const plan = {
+    action: "plan",
+    candidateIds: [film.id],
+    expectedRevision: null,
+  };
+  assert.equal((await call(admin, query, plan)).status, 401);
+  const cookie = createAdminSession("default");
+  const saved = await call(admin, query, plan, cookie);
+  assert.equal(saved.status, 200);
+  assert.deepEqual((saved.body as { planning: unknown }).planning, {
+    candidateIds: [film.id],
+    revision: 0,
+  });
+  assert.equal((await call(admin, query, plan, cookie)).status, 409);
+  for (const ids of [[film.id, film.id], [2147483647]]) {
+    assert.equal(
+      (
+        await call(
+          admin,
+          query,
+          { ...plan, candidateIds: ids, expectedRevision: 0 },
+          cookie,
+        )
+      ).status,
+      400,
+    );
+  }
+  assert.equal(
+    (
+      await call(
+        admin,
+        query,
+        { ...plan, candidateIds: [], expectedRevision: 0 },
+        cookie,
+      )
+    ).status,
+    200,
+  );
+});

@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { NextScreeningClosed } from "@/components/NextScreeningClosed";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getFilmResultVariant } from "@/lib/filmResultVariant";
 import { createPortal } from "react-dom";
@@ -11,6 +12,7 @@ import { TicketFinale } from "@/components/TicketFinale";
 import { ArchivedFilmResults } from "@/components/ArchivedFilmResults";
 import { formatFilmDate } from "@/components/filmClubProgramData";
 import { withBasePath } from "@/lib/basePath";
+import { getRoundArtwork } from "@/lib/filmClubProgramme";
 import type { DemoFinalist } from "@/lib/filmTicket";
 import type { FilmRoundSnapshot } from "@/lib/filmRoundClient";
 import program from "@/styles/filmClubProgram.module.css";
@@ -148,16 +150,23 @@ export const ClosedFilmRound = ({
   openDirectResult?: boolean;
   archive?: ReactNode;
 }) => {
+  const keepAnnouncement = getRoundArtwork(snapshot.boardId).keepAnnouncement;
   const [resultVariant, setResultVariant] = useState(() =>
-    getFilmResultVariant(snapshot.scheduledAt),
+    getFilmResultVariant(snapshot.scheduledAt, Date.now(), keepAnnouncement),
   );
   useEffect(() => {
     const update = () =>
-      setResultVariant(getFilmResultVariant(snapshot.scheduledAt));
+      setResultVariant(
+        getFilmResultVariant(
+          snapshot.scheduledAt,
+          Date.now(),
+          keepAnnouncement,
+        ),
+      );
     update();
     const timer = window.setInterval(update, 30_000);
     return () => window.clearInterval(timer);
-  }, [snapshot.scheduledAt]);
+  }, [snapshot.scheduledAt, keepAnnouncement]);
   const [finaleOpen, setFinaleOpen] = useState(false);
   const [directOpen, setDirectOpen] = useState(() => openDirectResult);
   const [emptyResult, setEmptyResult] = useState(false);
@@ -179,6 +188,16 @@ export const ClosedFilmRound = ({
       setDirectOpen(true);
     }
   }, [openDirectResult, hasTicket, snapshot.snapshotId]);
+
+  if (resultVariant === "announcement" && hasTicket && snapshot.ranking[0]) {
+    return (
+      <NextScreeningClosed
+        snapshot={snapshot}
+        archive={archive}
+        openResults={openDirectResult}
+      />
+    );
+  }
 
   return (
     <>

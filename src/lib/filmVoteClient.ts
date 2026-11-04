@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const snapshotSchema = z.object({
-  boardId: z.string().trim().min(1).max(64),
+  boardId: z.string().trim().min(1).max(128),
   ranking: z
     .array(
       z.object({

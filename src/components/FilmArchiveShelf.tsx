@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { BloodDrips } from "@/components/BloodDrips";
 import { FilmResultSpine } from "@/components/FilmResultSpine";
 import { FilmRoundRanking } from "@/components/FilmRoundRanking";
 import { FilmRoundStats } from "@/components/FilmRoundStats";
@@ -8,6 +9,7 @@ import {
   type FilmClubHistoryEntry,
 } from "@/lib/filmRoundClient";
 import { withBasePath } from "@/lib/basePath";
+import { getRoundArtwork } from "@/lib/filmClubProgramme";
 import { archiveWinner, otherScreenings } from "@/lib/filmArchive";
 import program from "@/styles/filmClubProgram.module.css";
 import styles from "@/styles/filmArchive.module.css";
@@ -171,17 +173,20 @@ export function FilmArchiveShelf({
                           }}
                         >
                           <span className={styles.cassette}>
+                            {getRoundArtwork(snapshot.boardId).blood && (
+                              <BloodDrips />
+                            )}
                             {winner ? (
                               <FilmResultSpine film={winner} />
                             ) : (
                               <span>Ingen stemmer · {date}</span>
                             )}
-                            {date === "22.09.2026" ? (
+                            {getRoundArtwork(snapshot.boardId).tape ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 className={styles.tape}
                                 src={withBasePath(
-                                  "/VHS/program/archive-tape-2026-09-22.png",
+                                  getRoundArtwork(snapshot.boardId).tape!,
                                 )}
                                 alt=""
                                 aria-hidden="true"
