@@ -1333,11 +1333,11 @@ export const createFilmVoteStore = (
 
       assertNoPublishedScheduleOverlap(input);
       const saved = updateScheduledRound(input, existing.revision + 1, null);
+      // An existing draft keeps the source recorded when it was created; a
+      // client value cannot override it. Drafts saved before sources were
+      // recorded have none and leave the shortlist for the admin to clear.
       if (input.published && !existing.published) {
-        const source = takePlanningSource(input.boardId);
-        consumeFilmPlanning(input.clubId, planningRevision ?? source);
-      } else if (!input.published) {
-        rememberPlanningSource(input.boardId, planningRevision);
+        consumeFilmPlanning(input.clubId, takePlanningSource(input.boardId));
       }
       return saved;
     });

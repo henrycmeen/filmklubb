@@ -446,13 +446,13 @@ void test("undated planning persists, isolates clubs and rejects stale saves", a
 void test("publishing consumes the undated shortlist while saving a draft preserves it", async () => {
   const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
   const planning = store.saveFilmPlanning("default", [10, 20], null);
-  const draft = store.saveScheduledRound(inputFor({ published: false }), null);
-  assert.deepEqual(store.getFilmPlanning("default"), planning);
-  store.saveScheduledRound(
-    { ...inputFor(), published: true },
-    draft.revision,
+  const draft = store.saveScheduledRound(
+    inputFor({ published: false }),
+    null,
     planning.revision,
   );
+  assert.deepEqual(store.getFilmPlanning("default"), planning);
+  store.saveScheduledRound({ ...inputFor(), published: true }, draft.revision);
   assert.deepEqual(store.getFilmPlanning("default").candidateIds, []);
   assert.throws(
     () => store.saveFilmPlanning("default", [10], planning.revision),
@@ -463,14 +463,37 @@ void test("publishing consumes the undated shortlist while saving a draft preser
 void test("publishing keeps a shortlist another admin saved after the draft", async () => {
   const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
   const seen = store.saveFilmPlanning("default", [10, 20], null);
-  const draft = store.saveScheduledRound(inputFor({ published: false }), null);
+  const draft = store.saveScheduledRound(
+    inputFor({ published: false }),
+    null,
+    seen.revision,
+  );
   const newer = store.saveFilmPlanning("default", [30], seen.revision);
+  // A client value, such as a stale tab sending the latest revision, cannot
+  // override the source recorded with the draft.
+  const edited = store.saveScheduledRound(
+    { ...inputFor({ published: false }), venue: "Nytt lokale" },
+    draft.revision,
+    newer.revision,
+  );
+  store.saveScheduledRound(
+    { ...inputFor(), published: true, venue: "Nytt lokale" },
+    edited.revision,
+    newer.revision,
+  );
+  assert.deepEqual(store.getFilmPlanning("default"), newer);
+});
+
+void test("a draft saved without a recorded source leaves the shortlist", async () => {
+  const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
+  const planning = store.saveFilmPlanning("default", [10, 20], null);
+  const draft = store.saveScheduledRound(inputFor({ published: false }), null);
   store.saveScheduledRound(
     { ...inputFor(), published: true },
     draft.revision,
-    seen.revision,
+    planning.revision,
   );
-  assert.deepEqual(store.getFilmPlanning("default"), newer);
+  assert.deepEqual(store.getFilmPlanning("default"), planning);
 });
 
 void test("publishing a saved draft consumes the shortlist it came from", async () => {
