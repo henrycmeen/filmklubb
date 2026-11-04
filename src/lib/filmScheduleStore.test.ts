@@ -473,6 +473,33 @@ void test("publishing keeps a shortlist another admin saved after the draft", as
   assert.deepEqual(store.getFilmPlanning("default"), newer);
 });
 
+void test("publishing a saved draft consumes the shortlist it came from", async () => {
+  const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
+  const seen = store.saveFilmPlanning("default", [10, 20], null);
+  const draft = store.saveScheduledRound(
+    inputFor({ published: false }),
+    null,
+    seen.revision,
+  );
+  // Reopened later: the client no longer knows the shortlist revision.
+  store.saveScheduledRound({ ...inputFor(), published: true }, draft.revision);
+  assert.deepEqual(store.getFilmPlanning("default").candidateIds, []);
+});
+
+void test("a draft from an older shortlist keeps a newer one when published", async () => {
+  const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
+  const seen = store.saveFilmPlanning("default", [10, 20], null);
+  const newer = store.saveFilmPlanning("default", [30], seen.revision);
+  // Admin A saves films picked from the older shortlist as a draft.
+  const draft = store.saveScheduledRound(
+    inputFor({ published: false }),
+    null,
+    seen.revision,
+  );
+  store.saveScheduledRound({ ...inputFor(), published: true }, draft.revision);
+  assert.deepEqual(store.getFilmPlanning("default"), newer);
+});
+
 void test("publishing a new round directly keeps a newer shortlist", async () => {
   const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
   const seen = store.saveFilmPlanning("default", [10, 20], null);

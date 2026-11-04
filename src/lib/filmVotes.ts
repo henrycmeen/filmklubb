@@ -267,6 +267,13 @@ const initializeDatabase = (database: DatabaseSync): void => {
 
     CREATE INDEX IF NOT EXISTS film_rounds_club_schedule_idx
       ON film_rounds (club_id, vote_starts_at, board_id);
+
+    -- The shortlist revision a draft's films came from. Publishing the draft
+    -- later consumes only that shortlist revision.
+    CREATE TABLE IF NOT EXISTS film_round_planning_sources (
+      board_id TEXT PRIMARY KEY,
+      planning_revision INTEGER NOT NULL
+    );
   `);
 };
 
@@ -1167,8 +1174,8 @@ export const createFilmVoteStore = (
     return updated;
   };
 
-  // Publishing consumes the undated shortlist only when the admin published
-  // from the revision they saw; a newer shortlist from someone else stays.
+  // Publishing consumes the undated shortlist only at the revision the
+  // round's films came from; a newer shortlist from someone else stays.
   const consumeFilmPlanning = (
     clubId: string,
     planningRevision: number | null | undefined,
@@ -1179,6 +1186,30 @@ export const createFilmVoteStore = (
         "UPDATE film_club_planning SET candidate_ids_json = ?, revision = revision + 1 WHERE club_id = ? AND revision = ?",
       )
       .run("[]", clubId, planningRevision);
+  };
+
+  const rememberPlanningSource = (
+    boardId: string,
+    planningRevision: number | null | undefined,
+  ) => {
+    if (planningRevision === undefined || planningRevision === null) return;
+    database
+      .prepare(
+        "INSERT INTO film_round_planning_sources (board_id, planning_revision) VALUES (?, ?) ON CONFLICT(board_id) DO UPDATE SET planning_revision = excluded.planning_revision",
+      )
+      .run(boardId, planningRevision);
+  };
+
+  const takePlanningSource = (boardId: string): number | null => {
+    const row = database
+      .prepare(
+        "SELECT planning_revision FROM film_round_planning_sources WHERE board_id = ?",
+      )
+      .get(boardId) as { planning_revision: number } | undefined;
+    database
+      .prepare("DELETE FROM film_round_planning_sources WHERE board_id = ?")
+      .run(boardId);
+    return row?.planning_revision ?? null;
   };
 
   const saveScheduledRound = (
@@ -1204,6 +1235,7 @@ export const createFilmVoteStore = (
         const saved = insertScheduledRound(input, 0, null);
         if (input.published)
           consumeFilmPlanning(input.clubId, planningRevision);
+        else rememberPlanningSource(input.boardId, planningRevision);
         return saved;
       }
 
@@ -1301,8 +1333,12 @@ export const createFilmVoteStore = (
 
       assertNoPublishedScheduleOverlap(input);
       const saved = updateScheduledRound(input, existing.revision + 1, null);
-      if (input.published && !existing.published)
-        consumeFilmPlanning(input.clubId, planningRevision);
+      if (input.published && !existing.published) {
+        const source = takePlanningSource(input.boardId);
+        consumeFilmPlanning(input.clubId, planningRevision ?? source);
+      } else if (!input.published) {
+        rememberPlanningSource(input.boardId, planningRevision);
+      }
       return saved;
     });
   };

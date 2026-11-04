@@ -548,6 +548,17 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
   const isNew = selection === "new";
   const selectedRound =
     programme?.rounds.find((round) => round.boardId === selection) ?? null;
+  // A new round's films start from the shortlist shown when the form opened.
+  // Its revision travels with the draft, so publishing never consumes a
+  // newer shortlist saved meanwhile.
+  const formKey = `${selection}:${reloadToken}`;
+  const [formPlanning, setFormPlanning] = useState<{
+    key: string;
+    revision: number | null;
+  }>({ key: "", revision: null });
+  if (programme && formPlanning.key !== formKey) {
+    setFormPlanning({ key: formKey, revision: programme.planning.revision });
+  }
   const openSelection = (id: string | null) => {
     if (busyAction !== null) return;
     if (
@@ -914,7 +925,7 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
                   aria-label="Arrangementets tidsplan"
                 >
                   <FilmClubRoundForm
-                    key={`${selection}:${reloadToken}`}
+                    key={formKey}
                     heading="Tidsplan"
                     intro="Bestem når folk kan stemme, og når resultatet vises."
                     round={selectedRound}
@@ -938,7 +949,9 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
                         {
                           action: "save",
                           expectedRevision: selectedRound?.revision ?? null,
-                          planningRevision: programme.planning.revision,
+                          planningRevision: selectedRound
+                            ? null
+                            : formPlanning.revision,
                           round,
                         },
                         "Arrangementet er lagret.",
