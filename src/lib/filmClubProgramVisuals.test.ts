@@ -188,11 +188,14 @@ void test("keeps trailer recovery on the TV without adding a visible manual butt
   assert.doesNotMatch(stylesheet, /\.nextTvRetry\b/);
 });
 
-void test("failed YouTube playback shows static while only films without trailers show a cover", () => {
-  assert.match(nextFilmTvSource, /\{!displayed\.youtubeId \? \(/);
+void test("failed trailer playback shows static while only films without trailers show a cover", () => {
+  assert.match(
+    nextFilmTvSource,
+    /\{!displayed\.source && !displayed\.pending \? \(/,
+  );
   assert.doesNotMatch(
     nextFilmTvSource,
-    /!displayed\.youtubeId \|\| usePosterFallback \?/,
+    /!displayed\.source \|\| usePosterFallback \?/,
   );
   assert.match(
     nextFilmTvSource,
