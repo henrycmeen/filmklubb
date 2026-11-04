@@ -37,6 +37,8 @@ const command = z.discriminatedUnion("action", [
     .object({
       action: z.literal("save"),
       expectedRevision: z.number().int().nonnegative().nullable(),
+      // The shortlist revision the admin saw; publishing consumes only that.
+      planningRevision: z.number().int().nonnegative().nullable().optional(),
       round: z
         .object({
           screeningId: identifier.max(64),
@@ -153,6 +155,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         store.saveScheduledRound(
           { ...fields, clubId, boardId, metadata },
           input.expectedRevision,
+          input.planningRevision,
         );
       } else {
         const round = store.getScheduledRound(input.boardId);

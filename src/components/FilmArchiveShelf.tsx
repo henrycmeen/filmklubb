@@ -9,6 +9,7 @@ import {
   type FilmClubHistoryEntry,
 } from "@/lib/filmRoundClient";
 import { withBasePath } from "@/lib/basePath";
+import { getRoundArtwork } from "@/lib/filmClubProgramme";
 import { archiveWinner, otherScreenings } from "@/lib/filmArchive";
 import program from "@/styles/filmClubProgram.module.css";
 import styles from "@/styles/filmArchive.module.css";
@@ -172,7 +173,7 @@ export function FilmArchiveShelf({
                           }}
                         >
                           <span className={styles.cassette}>
-                            {snapshot.boardId === "na-halloween-2026" && (
+                            {getRoundArtwork(snapshot.boardId).blood && (
                               <BloodDrips />
                             )}
                             {winner ? (
@@ -180,15 +181,12 @@ export function FilmArchiveShelf({
                             ) : (
                               <span>Ingen stemmer · {date}</span>
                             )}
-                            {date === "22.09.2026" ||
-                            snapshot.boardId === "na-halloween-2026" ? (
+                            {getRoundArtwork(snapshot.boardId).tape ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 className={styles.tape}
                                 src={withBasePath(
-                                  snapshot.boardId === "na-halloween-2026"
-                                    ? "/VHS/program/next-screening-tape-2026-10-29.png"
-                                    : "/VHS/program/archive-tape-2026-09-22.png",
+                                  getRoundArtwork(snapshot.boardId).tape!,
                                 )}
                                 alt=""
                                 aria-hidden="true"

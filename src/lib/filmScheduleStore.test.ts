@@ -448,12 +448,37 @@ void test("publishing consumes the undated shortlist while saving a draft preser
   const planning = store.saveFilmPlanning("default", [10, 20], null);
   const draft = store.saveScheduledRound(inputFor({ published: false }), null);
   assert.deepEqual(store.getFilmPlanning("default"), planning);
-  store.saveScheduledRound({ ...inputFor(), published: true }, draft.revision);
+  store.saveScheduledRound(
+    { ...inputFor(), published: true },
+    draft.revision,
+    planning.revision,
+  );
   assert.deepEqual(store.getFilmPlanning("default").candidateIds, []);
   assert.throws(
     () => store.saveFilmPlanning("default", [10], planning.revision),
     FilmScheduleRevisionConflictError,
   );
+});
+
+void test("publishing keeps a shortlist another admin saved after the draft", async () => {
+  const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
+  const seen = store.saveFilmPlanning("default", [10, 20], null);
+  const draft = store.saveScheduledRound(inputFor({ published: false }), null);
+  const newer = store.saveFilmPlanning("default", [30], seen.revision);
+  store.saveScheduledRound(
+    { ...inputFor(), published: true },
+    draft.revision,
+    seen.revision,
+  );
+  assert.deepEqual(store.getFilmPlanning("default"), newer);
+});
+
+void test("publishing a new round directly keeps a newer shortlist", async () => {
+  const { store } = await createStore(() => new Date("2026-08-01T00:00:00Z"));
+  const seen = store.saveFilmPlanning("default", [10, 20], null);
+  const newer = store.saveFilmPlanning("default", [30], seen.revision);
+  store.saveScheduledRound(inputFor(), null, seen.revision);
+  assert.deepEqual(store.getFilmPlanning("default"), newer);
 });
 
 void test("the next vote can start as soon as a screening is completed, preserving historical overlap protection", async () => {
@@ -488,6 +513,43 @@ void test("the next vote can start as soon as a screening is completed, preservi
   assert.ok(completed.completedAt);
 });
 
+void test("completing a past screening late does not block the next round", async () => {
+  let now = new Date("2026-09-21T09:00:00Z");
+  const { store } = await createStore(() => now);
+  const previous = store.saveScheduledRound(inputFor(), null);
+  // The next vote starts lawfully after the previous displayUntil.
+  const nextInput = inputFor({
+    screeningId: "next",
+    voteStartsAt: "2026-09-23T10:00:00Z",
+    voteEndsAt: "2026-09-30T10:00:00Z",
+    resultsAt: "2026-09-30T11:00:00Z",
+    scheduledAt: "2026-10-01T16:00:00Z",
+    displayUntil: "2026-10-01T23:59:00Z",
+  });
+  const next = store.saveScheduledRound(nextInput, null);
+  now = new Date("2026-09-25T12:00:00Z");
+  store.finalizeDueRounds("default");
+  const completed = store.completeScheduledRound(
+    previous.boardId,
+    store.getScheduledRound(previous.boardId)!.revision,
+  );
+  assert.ok(
+    Date.parse(completed.completedAt!) > Date.parse(completed.displayUntil),
+  );
+  // Removing an unvoted film is still allowed during the next vote.
+  const edited = store.saveScheduledRound(
+    {
+      ...nextInput,
+      metadata: selectRoundCandidates(nextInput.metadata, [10]),
+    },
+    next.revision,
+  );
+  assert.deepEqual(
+    edited.metadata.catalogue.map((film) => film.id),
+    [10],
+  );
+});
+
 void test("an expired published round cannot reopen before a reader finalizes it", () => {
   let now = new Date("2026-09-21T10:30:00Z");
   const store = createFilmVoteStore(":memory:", undefined, () => now);
@@ -497,13 +559,24 @@ void test("an expired published round cannot reopen before a reader finalizes it
     store.setVote(input.boardId, 10, "test-voter", true);
     now = new Date(input.voteEndsAt);
     assert.throws(
-      () => store.saveScheduledRound({
-        ...input, voteEndsAt: "2026-09-21T11:30:00Z",
-      }, saved.revision),
+      () =>
+        store.saveScheduledRound(
+          {
+            ...input,
+            voteEndsAt: "2026-09-21T11:30:00Z",
+          },
+          saved.revision,
+        ),
       FilmRoundScheduleNotEditableError,
     );
-    assert.equal(store.getScheduledRound(input.boardId)!.voteEndsAt, input.voteEndsAt);
-    assert.throws(() => store.setVote(input.boardId, 20, "late-voter", true), FilmRoundClosedError);
+    assert.equal(
+      store.getScheduledRound(input.boardId)!.voteEndsAt,
+      input.voteEndsAt,
+    );
+    assert.throws(
+      () => store.setVote(input.boardId, 20, "late-voter", true),
+      FilmRoundClosedError,
+    );
     assert.equal(store.getLockedRound(input.boardId)!.stats.totalVotes, 1);
   } finally {
     store.close();

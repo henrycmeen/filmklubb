@@ -15,7 +15,7 @@ Bruk Node.js 24 og pnpm 10. Appen krever en Node-server og skrivbar lagring; sta
 | `NEXT_PUBLIC_BASE_PATH`     | Tom for rot; `/filmklubb` for hosting i undermappe                 |
 | `FILMKLUBB_PROGRAMME_PATH`  | `data/club/programme.json`; klubbens programfil, leses ved bygging |
 
-Klubbens programfil (klubber, alias og eventuelt `ticketVenue` for eldre, konfigurerte visninger) bakes inn ved `pnpm build`. Finnes `data/club/programme.json`, eller filen `FILMKLUBB_PROGRAMME_PATH` peker på, erstatter den malen i `src/data/filmClubProgramme.json`. En ugyldig fil stopper bygget. Bygg på nytt etter endringer i filen.
+Klubbens programfil (klubber, alias og eventuelt `ticketVenue` for eldre, konfigurerte visninger) bakes inn ved `pnpm build`. Den kan også ha `roundArtwork`, med egen grafikk for enkeltrunder nøkkelført på runde-ID: `tape` (et transparent bilde under `public/` på kassetten), `blood` (blodanimasjon) og `keepAnnouncement` (beholder vinnervisningen etter visningsstart). Eksempel: `"roundArtwork": { "klubb-halloween-2026": { "blood": true, "keepAnnouncement": true } }`. Finnes `data/club/programme.json`, eller filen `FILMKLUBB_PROGRAMME_PATH` peker på, erstatter den malen i `src/data/filmClubProgramme.json`. En ugyldig fil stopper bygget. Bygg på nytt etter endringer i filen.
 
 Hold SQLite, programfil, adminfil og stemmehemmelighet utenfor Git og bevar dem på tvers av nye bygg. Bruk absolutte stier ved drift dersom arbeidsmappen skifter. Genererte bilder i `public/VHS/generated` og `.cache` kan regenereres. Ingen nøkler, cookies, stemmedatabaser eller adminfiler fra andre klubber følger med repoet.
 

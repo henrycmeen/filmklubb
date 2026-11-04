@@ -48,6 +48,7 @@ type AdminAction =
   | {
       action: "save";
       expectedRevision: number | null;
+      planningRevision: number | null;
       round: FilmAdminRoundDraft;
     }
   | { action: "close" | "complete"; boardId: string; expectedRevision: number };
@@ -937,6 +938,7 @@ export function FilmClubAdmin({ clubSlug }: FilmClubAdminProps) {
                         {
                           action: "save",
                           expectedRevision: selectedRound?.revision ?? null,
+                          planningRevision: programme.planning.revision,
                           round,
                         },
                         "Arrangementet er lagret.",
