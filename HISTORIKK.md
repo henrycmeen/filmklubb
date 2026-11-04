@@ -85,7 +85,7 @@ Når en YouTube-trailer ikke starter, blir blokkert eller slutter å gå fremove
 
 ## 2026-10-28 — lokal prøve av neste visning
 
-Gren `preview/next-screening-vhs`: `/neste-visning-demo` viser Cure-trailer, neste visning 29. oktober kl. 16 i Wergelandshallen og en datert VHS-rygg som åpner den låste resultatlisten. PlayTime vises under tidligere visninger. Bruker frosne offentlige resultater, uten stemme-/admin-klient eller produksjonsdatabase. Ny transparent tapegrafikk er avledet fra originalen med bildegenerering. Farge, kontrast og mindre plastglans gjelder bare prøvesiden via CSS-variabler; delte komponenters standard er bevart.
+Gren `preview/next-screening-vhs`: `/neste-visning-demo` viser Cure-trailer, neste visning 29. oktober kl. 16 og en datert VHS-rygg som åpner den låste resultatlisten. PlayTime vises under tidligere visninger. Bruker frosne offentlige resultater, uten stemme-/admin-klient eller produksjonsdatabase. Ny transparent tapegrafikk er avledet fra originalen med bildegenerering. Farge, kontrast og mindre plastglans gjelder bare prøvesiden via CSS-variabler; delte komponenters standard er bevart.
 
 Kontrollert: `pnpm check` og `pnpm build`; 13 eksisterende visuelle kontrakttester; nettleser på 742px og emulert 390px, traileravspilling, klikk/Enter for resultater og bevart fokus. Ingen publisering, push eller produksjonskode endret. Lokal kjøring på Mac mini: `SKIP_ENV_VALIDATION=1 CLUB_DB_PATH=.cache/next-screening-preview.sqlite node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3046`. Åpne `/neste-visning-demo`; MacBook bruker SSH-videresending av port 3046.
 

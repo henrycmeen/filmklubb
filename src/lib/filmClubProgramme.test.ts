@@ -108,3 +108,45 @@ void test("validates history entries used by the results view", () => {
     false,
   );
 });
+
+void test("round artwork is optional, per board and limited to public images", () => {
+  const clubs = {
+    default: { name: "Filmklubb", activeScreening: null, history: [] },
+  };
+  assert.deepEqual(
+    filmClubProgrammeConfigSchema.parse({ clubs, aliases: {} }).roundArtwork,
+    {},
+  );
+  const config = filmClubProgrammeConfigSchema.parse({
+    clubs,
+    aliases: {},
+    roundArtwork: {
+      "default-halloween": { blood: true, keepAnnouncement: true },
+      "default-2026-09-22": { tape: "/VHS/program/archive-tape.png" },
+    },
+  });
+  assert.deepEqual(config.roundArtwork["default-halloween"], {
+    blood: true,
+    keepAnnouncement: true,
+  });
+  assert.deepEqual(config.roundArtwork["default-2026-09-22"], {
+    tape: "/VHS/program/archive-tape.png",
+    blood: false,
+    keepAnnouncement: false,
+  });
+  for (const tape of [
+    "https://example.com/tape.png",
+    "/../secret.png",
+    "/tape.svg",
+  ]) {
+    assert.equal(
+      filmClubProgrammeConfigSchema.safeParse({
+        clubs,
+        aliases: {},
+        roundArtwork: { "default-x": { tape } },
+      }).success,
+      false,
+      tape,
+    );
+  }
+});
