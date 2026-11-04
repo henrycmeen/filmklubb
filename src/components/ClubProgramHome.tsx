@@ -299,7 +299,9 @@ export const ClubProgramHome = ({ clubSlug }: ClubProgramHomeProps) => {
         />
       </Head>
 
-      <main className={`${styles.programPage} ${styles.withArchive}`}>
+      <main
+        className={`${styles.programPage} ${styles.withArchive} ${styles.phoneColumn}`}
+      >
         <div className={styles.currentProgramme}>
           <section className={styles.nextSection} id="neste">
             <div className={styles.sectionLabel}>

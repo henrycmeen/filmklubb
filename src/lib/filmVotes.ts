@@ -177,6 +177,7 @@ export interface FilmVoteStore {
   saveScheduledRound(
     input: FilmScheduleInput,
     expectedRevision: number | null,
+    planningRevision?: number | null,
   ): ScheduledFilmRound;
   finalizeDueRounds(clubId: string, now?: Date): FilmRoundSnapshot[];
   closeScheduledRound(
@@ -266,6 +267,13 @@ const initializeDatabase = (database: DatabaseSync): void => {
 
     CREATE INDEX IF NOT EXISTS film_rounds_club_schedule_idx
       ON film_rounds (club_id, vote_starts_at, board_id);
+
+    -- The shortlist revision a draft's films came from. Publishing the draft
+    -- later consumes only that shortlist revision.
+    CREATE TABLE IF NOT EXISTS film_round_planning_sources (
+      board_id TEXT PRIMARY KEY,
+      planning_revision INTEGER NOT NULL
+    );
   `);
 };
 
@@ -593,19 +601,28 @@ export const createFilmVoteStore = (
         `SELECT
            board_id,
            vote_starts_at,
-           COALESCE(completed_at, display_until) AS display_until
+           completed_at,
+           display_until
          FROM film_rounds
          WHERE club_id = ? AND published = 1 AND board_id <> ?`,
       )
       .all(input.clubId, input.boardId) as unknown as Array<{
       board_id: string;
       vote_starts_at: string;
+      completed_at: string | null;
       display_until: string;
     }>;
 
     const overlaps = rows.some((row) => {
       const startsAt = Date.parse(row.vote_starts_at);
-      const displayUntil = Date.parse(row.display_until);
+      // Completing a screening ends it early. A late first read that
+      // completes it after displayUntil must not extend the round.
+      const scheduledEnd = Date.parse(row.display_until);
+      const completedAt =
+        row.completed_at === null ? Number.NaN : Date.parse(row.completed_at);
+      const displayUntil = Number.isNaN(completedAt)
+        ? scheduledEnd
+        : Math.min(completedAt, scheduledEnd);
       return startsAt < inputDisplayUntil && inputStartsAt < displayUntil;
     });
     if (overlaps) {
@@ -1157,9 +1174,48 @@ export const createFilmVoteStore = (
     return updated;
   };
 
+  // Publishing consumes the undated shortlist only at the revision the
+  // round's films came from; a newer shortlist from someone else stays.
+  const consumeFilmPlanning = (
+    clubId: string,
+    planningRevision: number | null | undefined,
+  ) => {
+    if (planningRevision === undefined || planningRevision === null) return;
+    database
+      .prepare(
+        "UPDATE film_club_planning SET candidate_ids_json = ?, revision = revision + 1 WHERE club_id = ? AND revision = ?",
+      )
+      .run("[]", clubId, planningRevision);
+  };
+
+  const rememberPlanningSource = (
+    boardId: string,
+    planningRevision: number | null | undefined,
+  ) => {
+    if (planningRevision === undefined || planningRevision === null) return;
+    database
+      .prepare(
+        "INSERT INTO film_round_planning_sources (board_id, planning_revision) VALUES (?, ?) ON CONFLICT(board_id) DO UPDATE SET planning_revision = excluded.planning_revision",
+      )
+      .run(boardId, planningRevision);
+  };
+
+  const takePlanningSource = (boardId: string): number | null => {
+    const row = database
+      .prepare(
+        "SELECT planning_revision FROM film_round_planning_sources WHERE board_id = ?",
+      )
+      .get(boardId) as { planning_revision: number } | undefined;
+    database
+      .prepare("DELETE FROM film_round_planning_sources WHERE board_id = ?")
+      .run(boardId);
+    return row?.planning_revision ?? null;
+  };
+
   const saveScheduledRound = (
     rawInput: FilmScheduleInput,
     expectedRevision: number | null,
+    planningRevision?: number | null,
   ): ScheduledFilmRound => {
     const input = normalizeScheduleInput(rawInput);
     return runInTransaction(database, () => {
@@ -1178,11 +1234,8 @@ export const createFilmVoteStore = (
         assertNoPublishedScheduleOverlap(input);
         const saved = insertScheduledRound(input, 0, null);
         if (input.published)
-          database
-            .prepare(
-              "UPDATE film_club_planning SET candidate_ids_json = ?, revision = revision + 1 WHERE club_id = ?",
-            )
-            .run("[]", input.clubId);
+          consumeFilmPlanning(input.clubId, planningRevision);
+        else rememberPlanningSource(input.boardId, planningRevision);
         return saved;
       }
 
@@ -1222,7 +1275,11 @@ export const createFilmVoteStore = (
             .get(input.boardId),
         );
 
-      if (existingSnapshot || existing.completedAt !== null) {
+      if (
+        existingSnapshot ||
+        existing.completedAt !== null ||
+        (existing.published && nowMs >= Date.parse(existing.voteEndsAt))
+      ) {
         throw new FilmRoundScheduleNotEditableError(
           "A closed or completed film round is immutable.",
         );
@@ -1276,12 +1333,12 @@ export const createFilmVoteStore = (
 
       assertNoPublishedScheduleOverlap(input);
       const saved = updateScheduledRound(input, existing.revision + 1, null);
-      if (input.published && !existing.published)
-        database
-          .prepare(
-            "UPDATE film_club_planning SET candidate_ids_json = ?, revision = revision + 1 WHERE club_id = ?",
-          )
-          .run("[]", input.clubId);
+      // An existing draft keeps the source recorded when it was created; a
+      // client value cannot override it. Drafts saved before sources were
+      // recorded have none and leave the shortlist for the admin to clear.
+      if (input.published && !existing.published) {
+        consumeFilmPlanning(input.clubId, takePlanningSource(input.boardId));
+      }
       return saved;
     });
   };

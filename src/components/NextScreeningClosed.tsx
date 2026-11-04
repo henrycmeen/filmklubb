@@ -6,8 +6,9 @@ import { FilmResultSpine } from "@/components/FilmResultSpine";
 import { FilmRoundRanking } from "@/components/FilmRoundRanking";
 import { FilmRoundStats } from "@/components/FilmRoundStats";
 import { withBasePath } from "@/lib/basePath";
+import { getRoundArtwork } from "@/lib/filmClubProgramme";
 import type { FilmRoundSnapshot } from "@/lib/filmRoundClient";
-import catalogue from "@/data/halloweenCatalogue.json";
+import { combinedFilmCatalogue } from "@/lib/filmCatalogue";
 import program from "@/styles/filmClubProgram.module.css";
 import archive from "@/styles/filmArchive.module.css";
 import styles from "@/styles/nextScreeningPreview.module.css";
@@ -42,6 +43,7 @@ function ScreeningCassette({
   const film = snapshot.ranking[0]?.film;
   if (!film) return null;
   const screeningDate = date.format(new Date(snapshot.scheduledAt));
+  const artwork = getRoundArtwork(snapshot.boardId);
   const cassette = (
     <button
       type="button"
@@ -52,18 +54,13 @@ function ScreeningCassette({
       onClick={() => setExpanded(!expanded)}
     >
       <span className={archive.cassette}>
-        {upcoming && snapshot.boardId === "na-halloween-2026" && <BloodDrips />}
+        {upcoming && artwork.blood && <BloodDrips />}
         <FilmResultSpine film={film} eager />
-        {screeningDate === "22.09.2026" ||
-        (upcoming && snapshot.boardId === "na-halloween-2026") ? (
+        {artwork.tape ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             className={archive.tape}
-            src={withBasePath(
-              upcoming
-                ? "/VHS/program/next-screening-tape-2026-10-29.png"
-                : "/VHS/program/archive-tape-2026-09-22.png",
-            )}
+            src={withBasePath(artwork.tape)}
             alt=""
             aria-hidden="true"
             draggable={false}
@@ -109,7 +106,7 @@ export function NextScreeningClosed({
 }) {
   const winner = current.ranking[0]?.film;
   if (!winner) return null;
-  const trailer = catalogue.find((film) => film.id === winner.id);
+  const trailer = combinedFilmCatalogue.find((film) => film.id === winner.id);
   return (
     <>
       <Head>

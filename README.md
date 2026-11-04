@@ -22,7 +22,7 @@ pnpm dev
 
 ## Opprett din egen klubb
 
-1. Endre `name` i [`src/data/filmClubProgramme.json`](src/data/filmClubProgramme.json). Klubb-ID-en `default` gir adressen `/default`; du kan også legge til din egen normaliserte ID, for eksempel `filmvenner`. Behold `default`. Nye klubber bruker `activeScreening: null`, `history: []` og har ingen åpen avstemning før du publiserer et arrangement.
+1. Kopier [`src/data/filmClubProgramme.json`](src/data/filmClubProgramme.json) til `data/club/programme.json` og endre `name` der. Den lokale filen holdes utenfor Git og brukes i stedet for malen ved neste `pnpm build`. Klubb-ID-en `default` gir adressen `/default`; du kan også legge til din egen normaliserte ID, for eksempel `filmvenner`. Behold `default`. Nye klubber bruker `activeScreening: null`, `history: []` og har ingen åpen avstemning før du publiserer et arrangement.
 2. Sett `FILMKLUBB_LOCAL_ADMIN=1` i `.env` og start utviklingsserveren på nytt.
 3. Åpne [localhost:3000/default/admin](http://localhost:3000/default/admin) direkte på servermaskinen. Velg et adminpassord på minst ti tegn. Førstegangsoppsett fungerer bare lokalt, uten proxy eller tunnel.
 4. Opprett et arrangement i admin. Velg kandidatfilmer, visningssted og tidspunktene for stemmestart, stemmefrist, resultat, visning og slutt på resultatperioden. Tidene angis i **Europe/Oslo**.

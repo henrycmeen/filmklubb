@@ -3,12 +3,20 @@ import type { FilmProgramMovie } from "@/components/filmClubProgramData";
 import { withBasePath } from "@/lib/basePath";
 import {
   getYoutubeTrailerCutoffSeconds,
+  YOUTUBE_TRAILER_INITIAL_START_SECONDS,
   YOUTUBE_TRAILER_LOOP_START_SECONDS,
 } from "@/lib/youtubeEmbed";
 import {
   YoutubeTrailerPlayer,
   type YoutubeTrailerControls,
 } from "@/components/YoutubeTrailerPlayer";
+import { AppleTrailerPlayer } from "@/components/AppleTrailerPlayer";
+import {
+  APPLE_TRAILER_LOOKUP_TIMEOUT_MS,
+  getTrailerSourceKey,
+  resolveTrailerSource,
+  type TrailerSource,
+} from "@/lib/appleTrailerPlayback";
 import {
   observeYoutubeProgress,
   shouldRecoverYoutubePoster,
@@ -42,14 +50,57 @@ interface ReadyNextFilmTvProps {
 interface TrailerState {
   movieId: number;
   youtubeId: string | null;
+  // undefined while Apple's lookup has not answered.
+  appleHlsUrl: string | null | undefined;
+  appleFailed: boolean;
 }
 
 interface DisplayedTrailer {
   coverImage: string;
   movieId: number;
   title: string;
-  youtubeId: string | null;
+  source: TrailerSource | null;
+  sourceKey: string | null;
+  pending: boolean;
 }
+
+const initialTrailerState = (movie: NextFilmMovie): TrailerState => ({
+  movieId: movie.id,
+  youtubeId: movie.trailerYoutubeId ?? null,
+  appleHlsUrl: undefined,
+  appleFailed: false,
+});
+
+const buildDisplayedTrailer = (
+  movie: NextFilmMovie,
+  trailer: TrailerState,
+): DisplayedTrailer => {
+  const { source, pending } = resolveTrailerSource(trailer);
+  return {
+    coverImage: movie.coverImage,
+    movieId: movie.id,
+    title: movie.title,
+    source,
+    sourceKey: getTrailerSourceKey(source),
+    pending,
+  };
+};
+
+const fetchTrailerJson = async (
+  path: string,
+  movieId: number,
+  signal: AbortSignal,
+): Promise<Record<string, unknown> | null> => {
+  const params = new URLSearchParams({ movieId: String(movieId) });
+  const response = await fetch(withBasePath(`${path}?${params.toString()}`), {
+    signal,
+  });
+  if (!response.ok) return null;
+  const payload: unknown = await response.json();
+  return payload && typeof payload === "object"
+    ? (payload as Record<string, unknown>)
+    : null;
+};
 
 const MAX_STABLE_PROGRESS_AGE_MS = 1_500;
 const PLAYBACK_WATCHDOG_GRACE_MS = 4_000;
@@ -131,16 +182,14 @@ const BootingNextFilmTv = () => (
 );
 
 const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
-  const [trailer, setTrailer] = useState<TrailerState>({
-    movieId: movie.id,
-    youtubeId: movie.trailerYoutubeId ?? null,
-  });
-  const [displayed, setDisplayed] = useState<DisplayedTrailer>({
-    coverImage: movie.coverImage,
-    movieId: movie.id,
-    title: movie.title,
-    youtubeId: movie.trailerYoutubeId ?? null,
-  });
+  const [trailer, setTrailer] = useState<TrailerState>(() =>
+    initialTrailerState(movie),
+  );
+  const [displayed, setDisplayed] = useState<DisplayedTrailer>(() =>
+    buildDisplayedTrailer(movie, initialTrailerState(movie)),
+  );
+  const displayedRef = useRef(displayed);
+  displayedRef.current = displayed;
   const [phase, setPhase] = useState<TvPhase>("tuning");
   const [playerGeneration, setPlayerGeneration] = useState(0);
   const [usePosterFallback, setUsePosterFallback] = useState(false);
@@ -163,6 +212,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   const autoplayBlockedRef = useRef(false);
   const manualPlaybackRequestedRef = useRef(false);
   const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   const setTvPhase = useCallback((nextPhase: TvPhase) => {
     phaseRef.current = nextPhase;
@@ -221,76 +271,91 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
 
   useEffect(() => {
     const controller = new AbortController();
-    setTrailer({
-      movieId: movie.id,
-      youtubeId: movie.trailerYoutubeId ?? null,
-    });
+    const movieId = movie.id;
+    setTrailer(initialTrailerState(movie));
+    const isCurrent = (current: TrailerState) =>
+      !controller.signal.aborted && current.movieId === movieId;
 
-    if (movie.trailerYoutubeId) {
-      return () => controller.abort();
-    }
-
-    const loadTrailer = async () => {
+    // Apple first. A slow or failed lookup counts as no Apple trailer.
+    const appleTimeout = window.setTimeout(() => {
+      setTrailer((current) =>
+        isCurrent(current) && current.appleHlsUrl === undefined
+          ? { ...current, appleHlsUrl: null }
+          : current,
+      );
+    }, APPLE_TRAILER_LOOKUP_TIMEOUT_MS);
+    const loadAppleTrailer = async () => {
+      let hlsUrl: string | null = null;
       try {
-        const params = new URLSearchParams({ movieId: String(movie.id) });
-        const response = await fetch(
-          withBasePath(`/api/tmdb/trailer?${params.toString()}`),
-          { signal: controller.signal },
+        const payload = await fetchTrailerJson(
+          "/api/trailer/apple",
+          movieId,
+          controller.signal,
         );
-        if (!response.ok) {
-          return;
-        }
+        if (typeof payload?.hlsUrl === "string") hlsUrl = payload.hlsUrl;
+      } catch {
+        // Treated as no Apple trailer below.
+      }
+      if (controller.signal.aborted) return;
+      window.clearTimeout(appleTimeout);
+      setTrailer((current) =>
+        isCurrent(current) && current.appleHlsUrl === undefined
+          ? { ...current, appleHlsUrl: hlsUrl }
+          : current,
+      );
+    };
 
-        const payload: unknown = await response.json();
-        if (!payload || typeof payload !== "object") {
-          return;
+    const loadYoutubeTrailer = async () => {
+      try {
+        const payload = await fetchTrailerJson(
+          "/api/tmdb/trailer",
+          movieId,
+          controller.signal,
+        );
+        const youtubeId = payload?.youtubeId;
+        if (typeof youtubeId === "string") {
+          setTrailer((current) =>
+            isCurrent(current) ? { ...current, youtubeId } : current,
+          );
         }
-
-        const youtubeId = (payload as { youtubeId?: unknown }).youtubeId;
-        if (typeof youtubeId === "string" || youtubeId === null) {
-          setTrailer({ movieId: movie.id, youtubeId });
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
+      } catch {
+        // The TV keeps the poster when no trailer can be found.
       }
     };
 
-    void loadTrailer();
-    return () => controller.abort();
+    void loadAppleTrailer();
+    if (!movie.trailerYoutubeId) void loadYoutubeTrailer();
+    return () => {
+      controller.abort();
+      window.clearTimeout(appleTimeout);
+    };
+    // The movie object is replaced on every poll; its id and trailer matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movie.id, movie.trailerYoutubeId]);
 
-  const youtubeId =
-    trailer.movieId === movie.id
-      ? trailer.youtubeId
-      : (movie.trailerYoutubeId ?? null);
+  const nextDisplay = buildDisplayedTrailer(
+    movie,
+    trailer.movieId === movie.id ? trailer : initialTrailerState(movie),
+  );
+  const sourceKey = nextDisplay.sourceKey;
+  const sourcePending = nextDisplay.pending;
 
   useEffect(() => {
     restartPending.current = false;
     knownDuration.current = null;
     lastPlayerSampleTime.current = null;
-  }, [displayed.youtubeId, playerGeneration]);
+  }, [displayed.sourceKey, playerGeneration]);
 
   useEffect(() => {
     manualPlaybackRequestedRef.current = false;
     retryableFailureRef.current = false;
     autoplayBlockedRef.current = false;
+    setAutoplayBlocked(false);
     setNeedsPlaybackGesture(false);
-  }, [displayed.movieId, displayed.youtubeId]);
+  }, [displayed.movieId, displayed.sourceKey]);
 
-  const pendingDisplay = useRef<DisplayedTrailer>({
-    coverImage: movie.coverImage,
-    movieId: movie.id,
-    title: movie.title,
-    youtubeId,
-  });
-  pendingDisplay.current = {
-    coverImage: movie.coverImage,
-    movieId: movie.id,
-    title: movie.title,
-    youtubeId,
-  };
+  const pendingDisplay = useRef<DisplayedTrailer>(nextDisplay);
+  pendingDisplay.current = nextDisplay;
 
   useEffect(() => {
     if (previousMovieId.current !== movie.id) {
@@ -313,7 +378,10 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
       return;
     }
 
-    if (displayed.movieId === movie.id && displayed.youtubeId !== youtubeId) {
+    if (
+      displayed.movieId === movie.id &&
+      (displayed.sourceKey !== sourceKey || displayed.pending !== sourcePending)
+    ) {
       clearRevealTimer();
       clearPhaseTimer();
       clearBlockedTrailerTimer();
@@ -329,11 +397,13 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     clearPhaseTimer,
     clearRevealTimer,
     displayed.movieId,
-    displayed.youtubeId,
+    displayed.pending,
+    displayed.sourceKey,
     movie.id,
     resetPlaybackCandidate,
     setTvPhase,
-    youtubeId,
+    sourceKey,
+    sourcePending,
   ]);
 
   useEffect(() => {
@@ -406,20 +476,20 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   ]);
 
   useEffect(() => {
-    if (phase === "tuning" && !displayed.youtubeId) {
-      const delay = getTvRevealDelay(displayed.youtubeId, "posterReady");
+    if (phase === "tuning" && !displayed.sourceKey && !displayed.pending) {
+      const delay = getTvRevealDelay(null, "posterReady");
       if (delay !== null) {
         revealPicture(delay);
       }
     }
-  }, [displayed.youtubeId, phase, revealPicture]);
+  }, [displayed.pending, displayed.sourceKey, phase, revealPicture]);
 
   const prepareTrailerPlayback = useCallback(() => {
     playerRef.current?.playMuted();
   }, []);
 
   const retryTrailerPlayback = useCallback(() => {
-    if (!displayed.youtubeId) {
+    if (!displayed.sourceKey) {
       return;
     }
 
@@ -435,13 +505,13 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     clearBlockedTrailerTimer,
     clearPhaseTimer,
     clearRevealTimer,
-    displayed.youtubeId,
+    displayed.sourceKey,
     resetPlaybackCandidate,
     setTvPhase,
   ]);
 
   useEffect(() => {
-    if (phase !== "tuning" || !displayed.youtubeId || usePosterFallback) {
+    if (phase !== "tuning" || !displayed.sourceKey || usePosterFallback) {
       return;
     }
 
@@ -456,7 +526,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         blockedTrailerTimer.current = null;
       }
     };
-  }, [displayed.youtubeId, phase, revealPosterFallback, usePosterFallback]);
+  }, [displayed.sourceKey, phase, revealPosterFallback, usePosterFallback]);
 
   const restartTrailer = useCallback(() => {
     if (restartPending.current || posterFallbackRef.current) {
@@ -471,12 +541,23 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
 
   const handleTrailerBlocked = useCallback(() => {
     autoplayBlockedRef.current = true;
+    setAutoplayBlocked(true);
     retryableFailureRef.current = false;
     setNeedsPlaybackGesture(true);
     revealPosterFallback();
   }, [revealPosterFallback]);
 
   const handleTrailerError = useCallback(() => {
+    const failed = displayedRef.current;
+    if (failed.source?.kind === "apple") {
+      // YouTube takes over; without it the TV shows the cover.
+      setTrailer((current) =>
+        current.movieId === failed.movieId
+          ? { ...current, appleFailed: true }
+          : current,
+      );
+      return;
+    }
     retryableFailureRef.current = true;
     revealPosterFallback();
   }, [revealPosterFallback]);
@@ -493,11 +574,13 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
               ? "buffering"
               : null;
 
+      // A click on a blocked player reaches YouTube directly, not this page.
+      // Playback can then only advance after that click or a browser change.
       const canRecoverPoster = shouldRecoverYoutubePoster(
         sample.state,
         lastPlayerSampleTime.current,
         sample.currentTime,
-        manualPlaybackRequestedRef.current,
+        manualPlaybackRequestedRef.current || autoplayBlockedRef.current,
       );
       // This history survives poster fallback and candidate resets so a cached
       // PLAYING state cannot turn a frozen frame into another tuning cycle.
@@ -506,6 +589,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         clearRevealTimer();
         posterFallbackRef.current = false;
         autoplayBlockedRef.current = false;
+        setAutoplayBlocked(false);
         retryableFailureRef.current = false;
         setNeedsPlaybackGesture(false);
         setUsePosterFallback(false);
@@ -570,7 +654,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
           hasPlaybackAdvanced.current = true;
           if (phaseRef.current === "tuning") {
             const fullDelay = getTvRevealDelay(
-              displayed.youtubeId,
+              displayed.sourceKey,
               "youtubePlaying",
             );
             const candidateStartedAt = playbackCandidateStartedAt.current;
@@ -596,7 +680,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     },
     [
       clearRevealTimer,
-      displayed.youtubeId,
+      displayed.sourceKey,
       resetPlaybackCandidate,
       restartTrailer,
       revealPicture,
@@ -607,7 +691,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
   );
 
   useEffect(() => {
-    if (phase !== "playing" || !displayed.youtubeId || usePosterFallback) {
+    if (phase !== "playing" || !displayed.sourceKey || usePosterFallback) {
       return;
     }
 
@@ -631,13 +715,24 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         progressAt === null ||
         Date.now() - progressAt > PLAYBACK_WATCHDOG_GRACE_MS
       ) {
-        revealPosterFallback();
+        // A visible Apple stream that stops hands over to YouTube. A hidden
+        // tab only throttles this timer, so it keeps the Apple trailer.
+        if (
+          displayedRef.current.source?.kind === "apple" &&
+          !autoplayBlockedRef.current &&
+          document.visibilityState === "visible"
+        ) {
+          handleTrailerError();
+        } else {
+          revealPosterFallback();
+        }
       }
     }, 250);
 
     return () => window.clearInterval(watchdog);
   }, [
-    displayed.youtubeId,
+    displayed.sourceKey,
+    handleTrailerError,
     phase,
     restartTrailer,
     revealPosterFallback,
@@ -646,13 +741,12 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
 
   const resumeTrailerFromGesture = useCallback(() => {
     if (
-      !displayed.youtubeId ||
+      !displayed.sourceKey ||
       phaseRef.current === "poweringOff" ||
       (phaseRef.current === "playing" && !posterFallbackRef.current)
     )
       return;
     manualPlaybackRequestedRef.current = true;
-    autoplayBlockedRef.current = false;
     if (retryableFailureRef.current) {
       retryableFailureRef.current = false;
       retryTrailerPlayback();
@@ -660,7 +754,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     }
     // Preserve the existing iframe and send play directly inside the gesture.
     prepareTrailerPlayback();
-  }, [displayed.youtubeId, prepareTrailerPlayback, retryTrailerPlayback]);
+  }, [displayed.sourceKey, prepareTrailerPlayback, retryTrailerPlayback]);
 
   const pictureClassName = `${styles.nextTvPicture} ${
     phase === "poweringOff"
@@ -680,8 +774,8 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
       className={styles.nextTv}
       data-tv-phase={phase}
       data-poster-fallback={usePosterFallback}
-      role={displayed.youtubeId ? "button" : undefined}
-      tabIndex={displayed.youtubeId ? 0 : undefined}
+      role={displayed.source ? "button" : undefined}
+      tabIndex={displayed.source ? 0 : undefined}
       aria-label={
         needsPlaybackGesture
           ? `Spill trailer for ${movie.title}`
@@ -689,10 +783,7 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
       }
       onClick={resumeTrailerFromGesture}
       onKeyDown={(event) => {
-        if (
-          displayed.youtubeId &&
-          (event.key === "Enter" || event.key === " ")
-        ) {
+        if (displayed.source && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           resumeTrailerFromGesture();
         }
@@ -700,20 +791,35 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
     >
       <div className={screenClassName}>
         <div className={pictureClassName}>
-          {displayed.youtubeId ? (
-            <YoutubeTrailerPlayer
-              key={buildTvPlayerKey(displayed.youtubeId, playerGeneration)}
+          {displayed.source?.kind === "apple" && displayed.sourceKey ? (
+            <AppleTrailerPlayer
+              key={buildTvPlayerKey(displayed.sourceKey, playerGeneration)}
               ref={playerRef}
-              className={styles.nextTvVideo}
-              youtubeId={displayed.youtubeId}
+              className={styles.nextTvAppleVideo}
+              hlsUrl={displayed.source.hlsUrl}
               title={displayed.title}
               hidden={usePosterFallback}
+              startSeconds={YOUTUBE_TRAILER_INITIAL_START_SECONDS}
               onSample={handleYoutubeSample}
               onBlocked={handleTrailerBlocked}
               onError={handleTrailerError}
             />
           ) : null}
-          {!displayed.youtubeId ? (
+          {displayed.source?.kind === "youtube" && displayed.sourceKey ? (
+            <YoutubeTrailerPlayer
+              key={buildTvPlayerKey(displayed.sourceKey, playerGeneration)}
+              ref={playerRef}
+              className={styles.nextTvVideo}
+              youtubeId={displayed.source.youtubeId}
+              title={displayed.title}
+              hidden={usePosterFallback}
+              acceptsPointer={autoplayBlocked}
+              onSample={handleYoutubeSample}
+              onBlocked={handleTrailerBlocked}
+              onError={handleTrailerError}
+            />
+          ) : null}
+          {!displayed.source && !displayed.pending ? (
             <>
               <span
                 className={styles.nextTvPosterBackdrop}
@@ -741,7 +847,14 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         {phase === "poweringOff" ? (
           <span className={styles.nextTvPowerOffFlash} aria-hidden="true" />
         ) : null}
-        <span className={styles.nextTvShield} aria-hidden="true" />
+        <span
+          className={`${styles.nextTvShield} ${
+            autoplayBlocked && displayed.source?.kind === "youtube"
+              ? styles.nextTvShieldPassThrough
+              : ""
+          }`}
+          aria-hidden="true"
+        />
         <span className={styles.nextTvGlow} aria-hidden="true" />
       </div>
     </div>

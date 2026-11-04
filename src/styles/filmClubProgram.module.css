@@ -5,6 +5,9 @@
   --rule: rgba(255, 255, 255, 0.18);
   background: var(--paper);
   color: var(--ink);
+  /* Layout follows the page column, not the window, so the desktop column
+     can use exactly the phone layout. */
+  container-type: inline-size;
   font-family: inherit;
   min-height: 100vh;
   overflow: hidden;
@@ -15,6 +18,14 @@
   display: flex;
   flex-direction: column;
   min-height: 100svh;
+}
+
+/* Large screens show the phone layout as one centred column on black. */
+@media (min-width: 46.001rem) {
+  .phoneColumn {
+    margin-inline: auto;
+    max-width: 40rem;
+  }
 }
 
 /* Archive begins below the opening viewport, even with a small film selection.
@@ -43,7 +54,7 @@
 }
 
 .nextSection {
-  padding: 0.8rem clamp(0.8rem, 2vw, 2rem) 1.4rem;
+  padding: 0.8rem clamp(0.8rem, 2cqw, 2rem) 1.4rem;
 }
 
 .sectionLabel {
@@ -72,7 +83,7 @@
   background: #070707;
   border-radius: 1.35rem;
   box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.7);
-  padding: clamp(0.45rem, 1.1vw, 0.8rem);
+  padding: clamp(0.45rem, 1.1cqw, 0.8rem);
   position: relative;
   width: 100%;
 }
@@ -158,6 +169,18 @@
   top: 50%;
   transform: translate(-50%, -50%);
   width: calc(177.78% + 256px);
+  z-index: 1;
+}
+
+/* Apple's stream has no player chrome; it only fills the square screen. */
+.nextTvAppleVideo {
+  background: #050505;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
   z-index: 1;
 }
 
@@ -325,6 +348,10 @@
   z-index: 4;
 }
 
+.nextTvShieldPassThrough {
+  pointer-events: none;
+}
+
 @keyframes nextTvPowerOn {
   0% {
     filter: brightness(3) contrast(1.45) saturate(0);
@@ -461,12 +488,12 @@
 }
 
 .voteWallSection {
-  padding: 0 clamp(0.45rem, 1.1vw, 1.1rem) 2rem;
+  padding: 0 clamp(0.45rem, 1.1cqw, 1.1rem) 2rem;
 }
 
 .voteGrid {
   display: grid;
-  gap: clamp(0.3rem, 0.75vw, 0.75rem) clamp(0.18rem, 0.55vw, 0.55rem);
+  gap: clamp(0.3rem, 0.75cqw, 0.75rem) clamp(0.18rem, 0.55cqw, 0.55rem);
   grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
   list-style: none;
   margin: 0;
@@ -488,16 +515,16 @@
 }
 
 /* Small selections form a centered shelf, including a short wrapped row. */
-@media (min-width: 46.001rem) {
+@container (min-width: 46.001rem) {
   .voteGrid:not(:has(> li:nth-child(13))) {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: clamp(0.6rem, 1vw, 1rem);
+    gap: clamp(0.6rem, 1cqw, 1rem);
   }
 
   .voteGrid:not(:has(> li:nth-child(13))) > li {
-    flex: 0 0 clamp(6rem, 13vw, 9rem);
+    flex: 0 0 clamp(6rem, 13cqw, 9rem);
   }
 }
 
@@ -674,7 +701,7 @@
   }
 }
 
-@media (max-width: 46rem) {
+@container (max-width: 46rem) {
   .nextSection {
     padding-bottom: 1rem;
   }
@@ -732,7 +759,7 @@
 }
 
 .planningShelf {
-  padding: 0 clamp(0.8rem, 2vw, 2rem);
+  padding: 0 clamp(0.8rem, 2cqw, 2rem);
   width: 100%;
   margin-top: 28px;
   min-height: 100px;

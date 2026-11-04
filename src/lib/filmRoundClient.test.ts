@@ -207,3 +207,29 @@ void test("rejects malformed round statuses", () => {
   assert.equal(error.name, "FilmRoundRequestError");
   assert.equal(error.status, 503);
 });
+
+void test("accepts API-supported board IDs through every round state and history", () => {
+  for (const length of [65, 128, 129]) {
+    const boardId = `club-${"r".repeat(length - 5)}`;
+    const snapshot = { ...closedResponse.snapshot, boardId };
+    for (const response of [
+      { status: "open", boardId },
+      {
+        status: "scheduled", boardId,
+        opensAt: "2026-10-24T10:00:00Z",
+        scheduledAt: "2026-10-25T15:00:00Z",
+      },
+      {
+        status: "awaiting", boardId,
+        resultsAt: "2026-10-25T14:00:00Z",
+        scheduledAt: "2026-10-25T15:00:00Z",
+      },
+      { status: "closed", boardId, snapshot },
+    ]) {
+      assert.equal(parseFilmRoundResponse(response) !== null, length <= 128);
+    }
+    assert.equal(parseFilmClubHistoryResponse({ history: [{
+      snapshot, completedAt: "2026-10-25T18:00:00Z",
+    }] }) !== null, length <= 128);
+  }
+});

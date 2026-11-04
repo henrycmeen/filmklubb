@@ -18,6 +18,9 @@ interface Props {
   title: string;
   className?: string;
   hidden: boolean;
+  // Lets a click reach YouTube itself. Safari does not pass a page gesture
+  // through postMessage, so a blocked player can only start from its own frame.
+  acceptsPointer: boolean;
   onSample: (sample: YoutubePlayerSample) => void;
   onBlocked: () => void;
   onError: () => void;
@@ -27,6 +30,7 @@ export const YoutubeTrailerPlayer = forwardRef<YoutubeTrailerControls, Props>(
   function YoutubeTrailerPlayer(props, ref) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<YoutubePlayer | null>(null);
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const playbackRef = useRef<ReturnType<
       typeof createMutedYoutubePlayback
     > | null>(null);
@@ -120,6 +124,10 @@ export const YoutubeTrailerPlayer = forwardRef<YoutubeTrailerControls, Props>(
           iframe.tabIndex = -1;
           iframe.style.cssText =
             "border:0;width:100%;height:100%;pointer-events:none;";
+          iframe.style.pointerEvents = propsRef.current.acceptsPointer
+            ? "auto"
+            : "none";
+          iframeRef.current = iframe;
           container.appendChild(iframe);
           player = new api.Player(iframe, {
             events: {
@@ -159,10 +167,19 @@ export const YoutubeTrailerPlayer = forwardRef<YoutubeTrailerControls, Props>(
         playbackRef.current?.cancel();
         playbackRef.current = null;
         playerRef.current = null;
+        iframeRef.current = null;
         player?.destroy();
         container.replaceChildren();
       };
     }, [props.youtubeId, props.title]);
+
+    useEffect(() => {
+      if (iframeRef.current) {
+        iframeRef.current.style.pointerEvents = props.acceptsPointer
+          ? "auto"
+          : "none";
+      }
+    }, [props.acceptsPointer]);
 
     return (
       <div

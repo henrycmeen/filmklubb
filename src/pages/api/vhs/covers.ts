@@ -16,48 +16,26 @@ const imageTypes = ['poster', 'backdrop'] as const;
 
 const querySchema = z.object({
   listType: z.enum(listTypes).default('popular'),
-  movieId: z.number().int().positive().optional(),
-  query: z.string().trim().min(1).optional(),
-  limit: z.number().int().min(1).max(20).default(8),
-  force: z.boolean().default(false),
+  movieId: z.string().regex(/^[0-9]+$/).transform(Number).pipe(z.number().int().safe().positive()).optional(),
+  query: z.string().trim().min(1).max(256).optional(),
+  limit: z.string().regex(/^[0-9]+$/).default('8').transform(Number).pipe(z.number().int().min(1).max(20)),
+  force: z.enum(['1', 'true', 'yes', 'on', '0', 'false', 'no', 'off']).default('false').transform(value => ['1', 'true', 'yes', 'on'].includes(value)),
   format: z.enum(formats).default('webp'),
-  renderer: z.enum(renderers).default('sharp'),
-  imageType: z.enum(imageTypes).default('poster'),
-  templateId: z.string().min(1).optional(),
-  smartObjectLayerName: z.string().min(1).optional(),
-  titles: z.string().optional(),
+  renderer: z.enum(renderers).default(() => getDefaultRenderer()),
+  imageType: z.enum(imageTypes).default(() => getDefaultImageType()),
+  templateId: z.string().min(1).max(128).optional(),
+  smartObjectLayerName: z.string().min(1).max(256).optional(),
+  titles: z.string().max(6000).refine(value => {
+    const entries = value.split('|').filter(entry => entry.trim());
+    return entries.length <= 20 && entries.every(entry => {
+      const parts = entry.split('::');
+      const title = parts[0]?.trim() ?? '';
+      const year = parts[1]?.trim();
+      return title.length > 0 && title.length <= 256 && parts.length <= 2 &&
+        (!year || (/^[0-9]{4}$/.test(year) && Number(year) >= 1800 && Number(year) <= 2200));
+    });
+  }, 'Invalid title queries.').optional(),
 });
-
-const getQueryValue = (
-  value: string | string[] | undefined
-): string | undefined => {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-};
-
-const parseBoolean = (value: string | undefined): boolean => {
-  if (!value) {
-    return false;
-  }
-
-  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
-};
-
-const parseOptionalNumber = (value: string | undefined): number | undefined => {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-};
 
 const parseTitleQueries = (value: string | undefined): TmdbTitleQuery[] => {
   if (!value) {
@@ -105,6 +83,7 @@ export default async function handler(
   res: NextApiResponse
 ) {
   if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
@@ -119,25 +98,10 @@ export default async function handler(
   }
 
   if (!hasTmdbApiKey()) {
-    return res.status(500).json({
-      message:
-        'TMDB API access mangler i .env. Legg inn TMDB_API_KEY eller TMDB_READ_ACCESS_TOKEN.',
-    });
+    return res.status(503).json({ message: 'TMDB is not configured.' });
   }
 
-  const parsedQuery = querySchema.safeParse({
-    listType: getQueryValue(req.query.listType),
-    movieId: parseOptionalNumber(getQueryValue(req.query.movieId)),
-    query: getQueryValue(req.query.query),
-    limit: Number(getQueryValue(req.query.limit) ?? 8),
-    force: parseBoolean(getQueryValue(req.query.force)),
-    format: getQueryValue(req.query.format),
-    renderer: getQueryValue(req.query.renderer) ?? getDefaultRenderer(),
-    imageType: getQueryValue(req.query.imageType) ?? getDefaultImageType(),
-    templateId: getQueryValue(req.query.templateId),
-    smartObjectLayerName: getQueryValue(req.query.smartObjectLayerName),
-    titles: getQueryValue(req.query.titles),
-  });
+  const parsedQuery = querySchema.safeParse(req.query);
 
   if (!parsedQuery.success) {
     return res.status(400).json({
@@ -174,10 +138,7 @@ export default async function handler(
       count: movies.length,
       movies,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unexpected VHS cover error';
-
-    return res.status(500).json({ message });
+  } catch {
+    return res.status(500).json({ message: 'VHS covers are temporarily unavailable.' });
   }
 }

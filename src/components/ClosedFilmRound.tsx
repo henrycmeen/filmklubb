@@ -12,6 +12,7 @@ import { TicketFinale } from "@/components/TicketFinale";
 import { ArchivedFilmResults } from "@/components/ArchivedFilmResults";
 import { formatFilmDate } from "@/components/filmClubProgramData";
 import { withBasePath } from "@/lib/basePath";
+import { getRoundArtwork } from "@/lib/filmClubProgramme";
 import type { DemoFinalist } from "@/lib/filmTicket";
 import type { FilmRoundSnapshot } from "@/lib/filmRoundClient";
 import program from "@/styles/filmClubProgram.module.css";
@@ -149,8 +150,9 @@ export const ClosedFilmRound = ({
   openDirectResult?: boolean;
   archive?: ReactNode;
 }) => {
+  const keepAnnouncement = getRoundArtwork(snapshot.boardId).keepAnnouncement;
   const [resultVariant, setResultVariant] = useState(() =>
-    getFilmResultVariant(snapshot.scheduledAt, Date.now(), snapshot.boardId),
+    getFilmResultVariant(snapshot.scheduledAt, Date.now(), keepAnnouncement),
   );
   useEffect(() => {
     const update = () =>
@@ -158,13 +160,13 @@ export const ClosedFilmRound = ({
         getFilmResultVariant(
           snapshot.scheduledAt,
           Date.now(),
-          snapshot.boardId,
+          keepAnnouncement,
         ),
       );
     update();
     const timer = window.setInterval(update, 30_000);
     return () => window.clearInterval(timer);
-  }, [snapshot.scheduledAt, snapshot.boardId]);
+  }, [snapshot.scheduledAt, keepAnnouncement]);
   const [finaleOpen, setFinaleOpen] = useState(false);
   const [directOpen, setDirectOpen] = useState(() => openDirectResult);
   const [emptyResult, setEmptyResult] = useState(false);

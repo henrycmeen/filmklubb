@@ -212,7 +212,10 @@ export const getOrCreateVoterSecret = async (): Promise<Buffer> => {
       }
       throw error;
     }
-  })();
+  })().catch((error: unknown) => {
+    secretPromise = null;
+    throw error;
+  });
 
   return secretPromise;
 };

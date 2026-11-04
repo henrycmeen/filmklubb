@@ -3,6 +3,10 @@
  * for Docker builds.
  */
 import "./src/env.js";
+import {
+  resolveProgrammeConfigPath,
+  TEMPLATE_PROGRAMME_PATTERN,
+} from "./src/lib/programmeConfigPath.js";
 
 /** @param {string | undefined} value */
 const normalizeBasePath = (value) => {
@@ -15,6 +19,8 @@ const normalizeBasePath = (value) => {
 };
 
 const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
+
+const programmeConfigPath = resolveProgrammeConfigPath();
 
 /** @type {import("next").NextConfig} */
 const config = {
@@ -31,7 +37,16 @@ const config = {
   },
   ...(basePath ? { basePath } : {}),
   transpilePackages: ["geist"],
-  webpack: (webpackConfig, { dev }) => {
+  webpack: (webpackConfig, { dev, webpack }) => {
+    if (programmeConfigPath) {
+      webpackConfig.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(
+          TEMPLATE_PROGRAMME_PATTERN,
+          programmeConfigPath,
+        ),
+      );
+    }
+
     if (dev) {
       webpackConfig.watchOptions = {
         ...(webpackConfig.watchOptions ?? {}),

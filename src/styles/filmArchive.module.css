@@ -203,7 +203,7 @@
   padding: 0.3em 0.6em;
   background: #ae3d35;
   color: #161412;
-  font: italic bold clamp(10px, 3vw, 24px) cursive;
+  font: italic bold clamp(10px, 3cqw, 24px) cursive;
   transform: rotate(-7deg);
 }
 .results {
