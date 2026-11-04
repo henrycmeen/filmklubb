@@ -2,9 +2,11 @@
  * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially useful
  * for Docker builds.
  */
-import fs from "node:fs";
-import path from "node:path";
 import "./src/env.js";
+import {
+  resolveProgrammeConfigPath,
+  TEMPLATE_PROGRAMME_PATTERN,
+} from "./src/lib/programmeConfigPath.js";
 
 /** @param {string | undefined} value */
 const normalizeBasePath = (value) => {
@@ -17,22 +19,6 @@ const normalizeBasePath = (value) => {
 };
 
 const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
-
-/**
- * A club installation keeps its programme (clubs, aliases, venue) outside Git,
- * next to its database. The bundled file is only the template default.
- */
-const resolveProgrammeConfigPath = () => {
-  const configured = (process.env.FILMKLUBB_PROGRAMME_PATH ?? "").trim();
-  const candidate = path.resolve(configured || "data/club/programme.json");
-  if (fs.existsSync(candidate)) {
-    return candidate;
-  }
-  if (configured) {
-    throw new Error(`FILMKLUBB_PROGRAMME_PATH does not exist: ${candidate}`);
-  }
-  return null;
-};
 
 const programmeConfigPath = resolveProgrammeConfigPath();
 
@@ -55,7 +41,7 @@ const config = {
     if (programmeConfigPath) {
       webpackConfig.plugins.push(
         new webpack.NormalModuleReplacementPlugin(
-          /[\\/]src[\\/]data[\\/]filmClubProgramme\.json$/,
+          TEMPLATE_PROGRAMME_PATTERN,
           programmeConfigPath,
         ),
       );

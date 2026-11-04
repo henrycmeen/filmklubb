@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { useClubProgrammeConfig } from "./clubProgrammeConfig";
 
 const IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -172,6 +173,8 @@ const run = async (args: LockRoundCliArgs): Promise<unknown> => {
     );
   }
 
+  // Before the imports below, so they read the club's programme file.
+  useClubProgrammeConfig();
   const [
     storagePaths,
     filmRoundService,
