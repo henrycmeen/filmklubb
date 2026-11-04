@@ -46,6 +46,9 @@ export const AppleTrailerPlayer = forwardRef<YoutubeTrailerControls, Props>(
       let disposed = false;
       let failed = false;
       let hasStarted = false;
+      // Playback counts as started only once time advances with data buffered,
+      // not when a seek or metadata alone moves currentTime.
+      let progressFrom: number | null = null;
       let isWaiting = false;
       // After a refusal only a click (playMuted) may try again.
       let awaitingGesture = false;
@@ -88,21 +91,27 @@ export const AppleTrailerPlayer = forwardRef<YoutubeTrailerControls, Props>(
       };
       requestRef.current = request;
 
+      const noteProgress = () => {
+        if (hasStarted || video.paused || video.readyState < 3) return;
+        if (progressFrom === null) {
+          progressFrom = video.currentTime;
+        } else if (video.currentTime > progressFrom + 0.2) {
+          hasStarted = true;
+          window.clearTimeout(startupTimer);
+        }
+      };
       const onPlaying = () => {
         isWaiting = false;
         awaitingGesture = false;
-        if (!hasStarted && video.currentTime > 0) {
-          hasStarted = true;
-          window.clearTimeout(startupTimer);
-        }
+        noteProgress();
         sample();
       };
       const onTimeUpdate = () => {
-        if (!hasStarted && !video.paused && video.currentTime > 0) {
-          hasStarted = true;
-          window.clearTimeout(startupTimer);
-        }
+        noteProgress();
         sample();
+      };
+      const onSeeking = () => {
+        if (!hasStarted) progressFrom = null;
       };
       const onWaiting = () => {
         isWaiting = true;
@@ -123,6 +132,7 @@ export const AppleTrailerPlayer = forwardRef<YoutubeTrailerControls, Props>(
         ["playing", onPlaying],
         ["timeupdate", onTimeUpdate],
         ["waiting", onWaiting],
+        ["seeking", onSeeking],
         ["pause", sample],
         ["ended", sample],
         ["loadedmetadata", onLoadedMetadata],

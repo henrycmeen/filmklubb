@@ -715,13 +715,24 @@ const ReadyNextFilmTv = ({ movie }: ReadyNextFilmTvProps) => {
         progressAt === null ||
         Date.now() - progressAt > PLAYBACK_WATCHDOG_GRACE_MS
       ) {
-        revealPosterFallback();
+        // A visible Apple stream that stops hands over to YouTube. A hidden
+        // tab only throttles this timer, so it keeps the Apple trailer.
+        if (
+          displayedRef.current.source?.kind === "apple" &&
+          !autoplayBlockedRef.current &&
+          document.visibilityState === "visible"
+        ) {
+          handleTrailerError();
+        } else {
+          revealPosterFallback();
+        }
       }
     }, 250);
 
     return () => window.clearInterval(watchdog);
   }, [
     displayed.sourceKey,
+    handleTrailerError,
     phase,
     restartTrailer,
     revealPosterFallback,

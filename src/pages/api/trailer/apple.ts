@@ -40,6 +40,8 @@ export default async function handler(
   const hlsUrl = await getAppleTrailerHlsUrl(parsed.data.movieId).catch(
     () => null,
   );
-  res.setHeader("Cache-Control", "private, max-age=600");
+  // A missing trailer may be a passing failure; the server cache decides when
+  // to ask again, so only a found trailer may be reused by the browser.
+  res.setHeader("Cache-Control", hlsUrl ? "private, max-age=600" : "no-store");
   return res.status(200).json({ hlsUrl });
 }
